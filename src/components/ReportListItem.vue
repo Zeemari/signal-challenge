@@ -8,9 +8,9 @@ defineProps({
 </script>
 
 <template>
-  <li class="rounded-lg border border-slate-200 bg-white p-3">
-    <p class="text-sm text-slate-800">{{ report.content }}</p>
-    <div class="mt-2 flex flex-wrap items-center gap-2">
+  <li class="rounded-xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-slate-300">
+    <p class="text-sm leading-relaxed text-slate-800">{{ report.content }}</p>
+    <div class="mt-2.5 flex flex-wrap items-center gap-2">
       <SourceBadge :source-type="report.source_type" />
       <FreshnessBadge :timestamp="report.reported_at" />
     </div>

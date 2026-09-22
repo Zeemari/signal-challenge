@@ -5,9 +5,9 @@ export function minutesAgo(isoString) {
 
 export function freshnessOf(isoString) {
   const mins = minutesAgo(isoString)
-  if (mins <= 15) return { level: 'recent', label: 'Recent', dot: '🟢', color: 'var(--color-fresh)' }
-  if (mins <= 30) return { level: 'aging', label: 'Aging', dot: '🟡', color: 'var(--color-aging)' }
-  return { level: 'stale', label: 'Stale', dot: '⚪', color: 'var(--color-stale)' }
+  if (mins <= 15) return { level: 'recent', label: 'Recent', color: 'var(--color-fresh)' }
+  if (mins <= 30) return { level: 'aging', label: 'Aging', color: 'var(--color-aging)' }
+  return { level: 'stale', label: 'Stale', color: 'var(--color-stale)' }
 }
 
 export function formatRelative(isoString) {

@@ -17,8 +17,28 @@ export function isFirsthand(value) {
 }
 
 export const STATUS_META = {
-  emerging: { label: 'Emerging signal', color: 'var(--color-status-emerging)' },
-  corroborating: { label: 'Corroborating reports', color: 'var(--color-status-corroborating)' },
-  conflicting: { label: 'Conflicting reports', color: 'var(--color-status-conflicting)' },
-  unconfirmed: { label: 'Unconfirmed', color: 'var(--color-status-unconfirmed)' },
+  emerging: {
+    label: 'Emerging',
+    dot: 'var(--color-status-emerging)',
+    bg: '#eaedfd',
+    text: '#3b4fc2',
+  },
+  corroborating: {
+    label: 'Corroborating',
+    dot: 'var(--color-status-corroborating)',
+    bg: '#e6f6ee',
+    text: '#1f7a52',
+  },
+  conflicting: {
+    label: 'Conflicting',
+    dot: 'var(--color-status-conflicting)',
+    bg: '#fdf3dd',
+    text: '#92670f',
+  },
+  unconfirmed: {
+    label: 'Unconfirmed',
+    dot: 'var(--color-status-unconfirmed)',
+    bg: '#eef0f2',
+    text: '#52585f',
+  },
 }

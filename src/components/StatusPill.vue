@@ -10,9 +10,10 @@ const meta = STATUS_META[props.status] ?? STATUS_META.unconfirmed
 
 <template>
   <span
-    class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-white"
-    :style="{ backgroundColor: meta.color }"
+    class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold"
+    :style="{ backgroundColor: meta.bg, color: meta.text }"
   >
+    <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: meta.dot }"></span>
     {{ meta.label }}
   </span>
 </template>
