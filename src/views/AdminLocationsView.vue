@@ -90,7 +90,7 @@ onMounted(load)
     <p v-if="error" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
     <p v-if="addSuccess" class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ addSuccess }}</p>
 
-    <div v-if="loading" class="h-64 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+    <div v-if="loading" class="skeleton h-64 rounded-2xl border border-slate-200" />
 
     <template v-else>
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

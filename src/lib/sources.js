@@ -31,25 +31,29 @@ export function institutionLabel(value) {
 
 export const STATUS_META = {
   emerging: {
-    label: 'Emerging',
+    label: 'New',
+    description: 'Just started coming in',
     dot: 'var(--color-status-emerging)',
     bg: '#eaedfd',
     text: '#3b4fc2',
   },
   corroborating: {
-    label: 'Corroborating',
+    label: 'Backed up',
+    description: 'Multiple reports agree',
     dot: 'var(--color-status-corroborating)',
     bg: '#e6f6ee',
     text: '#1f7a52',
   },
   conflicting: {
-    label: 'Conflicting',
+    label: 'Mixed',
+    description: 'Reports disagree with each other',
     dot: 'var(--color-status-conflicting)',
     bg: '#fdf3dd',
     text: '#92670f',
   },
   unconfirmed: {
-    label: 'Unconfirmed',
+    label: 'Cautious',
+    description: 'Single unverified report',
     dot: 'var(--color-status-unconfirmed)',
     bg: '#eef0f2',
     text: '#52585f',

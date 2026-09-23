@@ -73,9 +73,9 @@ const firsthandCount = computed(() =>
     </RouterLink>
 
     <div v-if="loading" class="mt-4 space-y-3">
-      <div class="h-7 w-2/3 animate-pulse rounded-lg bg-white border border-slate-200" />
-      <div class="h-24 animate-pulse rounded-2xl border border-slate-200 bg-white" />
-      <div class="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+      <div class="skeleton h-7 w-2/3 rounded-lg border border-slate-200" />
+      <div class="skeleton h-24 rounded-2xl border border-slate-200" />
+      <div class="skeleton h-32 rounded-2xl border border-slate-200" />
     </div>
     <div v-else-if="error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       Couldn't load this signal: {{ error }}
@@ -145,10 +145,10 @@ const firsthandCount = computed(() =>
             <path d="M10 8v3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
             <circle cx="10" cy="14" r="0.8" fill="currentColor" />
           </svg>
-          Conflicting reports
+          Mixed reports
         </p>
         <p class="mt-1 text-sm text-amber-700">
-          Recent reports give different accounts of the current situation. Further verification is needed.
+          Recent reports give different accounts of the current situation. Apply extra caution.
         </p>
       </section>
 
