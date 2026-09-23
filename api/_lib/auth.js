@@ -65,11 +65,14 @@ export async function getOptionalAuth(req) {
 
     const { data: profile } = await client
       .from('profiles')
-      .select('id, display_name, role, is_active, institution_name, institution_type')
+      .select('*')
       .eq('id', userData.user.id)
       .maybeSingle()
 
-    return { token, user: userData.user, profile: profile?.is_active ? profile : null }
+    if (!profile) return { token: null, user: null, profile: null }
+
+    const isVerified = !!(profile.is_verified_correspondent || profile.is_verified_informant)
+    return { token, user: userData.user, profile: profile.is_active ? { ...profile, is_verified_correspondent: isVerified } : null }
   } catch {
     return { token: null, user: null, profile: null }
   }
@@ -85,14 +88,15 @@ export async function requireAuth(req) {
 
   const { data: profile, error: profileError } = await client
     .from('profiles')
-    .select('id, display_name, role, is_active, institution_name, institution_type')
+    .select('*')
     .eq('id', userData.user.id)
     .maybeSingle()
 
   if (profileError || !profile) throw new AuthError(403, 'Account is not configured')
   if (!profile.is_active) throw new AuthError(403, 'Account is inactive')
 
-  return { token, user: userData.user, profile }
+  const isVerified = !!(profile.is_verified_correspondent || profile.is_verified_informant)
+  return { token, user: userData.user, profile: { ...profile, is_verified_correspondent: isVerified } }
 }
 
 export async function requirePermission(req, permission) {

@@ -82,12 +82,14 @@ export async function sendSMS(to, body) {
 
 /**
  * Dispatches outbound SMS alerts for a signal transitioning to an elevated state
- * (corroborating status or verified review status), obeying a 30-min cooldown window per subscriber.
+ * or triggered via the verified correspondent priority fast-path.
+ * Obeys a 30-min cooldown window per subscriber.
  */
-export async function dispatchSignalAlerts(db, signal, { previousStatus } = {}) {
+export async function dispatchSignalAlerts(db, signal, { previousStatus, isPriority = false, trustIndicator = null, category = '' } = {}) {
   if (!db || !signal) return
 
-  const isElevated = signal.status === 'corroborating' || signal.review_status === 'verified'
+  const isTrustedContact = isPriority || trustIndicator === 'single_trusted_contact' || signal.source_trust_indicator === 'single_trusted_contact'
+  const isElevated = isTrustedContact || signal.status === 'corroborating' || signal.review_status === 'verified'
   if (!isElevated) return
 
   const cooldownMinutes = parseInt(process.env.ALERT_COOLDOWN_MINUTES || '30', 10)
@@ -137,8 +139,15 @@ export async function dispatchSignalAlerts(db, signal, { previousStatus } = {}) 
 
     if (!eligibleSubscribers.length) return
 
-    const summaryText = signal.summary ? signal.summary.slice(0, 110) : 'Safety status updated.'
-    const body = `SIGNAL ALERT: Corroborated report near ${signal.location}. ${summaryText} Reply STOP to unsub.`
+    const locationName = signal.location || 'your area'
+    const eventDetails = category || signal.category || (signal.summary ? signal.summary.slice(0, 50) : 'activity')
+
+    let body = ''
+    if (isTrustedContact) {
+      body = `SIGNAL ALERT: A trusted local contact reports ${eventDetails} near ${locationName}. Not yet independently confirmed — exercise caution. Reply STOP to unsubscribe.`
+    } else {
+      body = `SIGNAL ALERT: Multiple reports confirm ${eventDetails} near ${locationName}. Avoid the area or take an alternate route. Reply STOP to unsubscribe.`
+    }
 
     const now = new Date().toISOString()
     const sentIds = []
@@ -147,7 +156,7 @@ export async function dispatchSignalAlerts(db, signal, { previousStatus } = {}) 
     const BATCH_SIZE = 25
     for (let i = 0; i < eligibleSubscribers.length; i += BATCH_SIZE) {
       const batch = eligibleSubscribers.slice(i, i + BATCH_SIZE)
-      const results = await Promise.allSettled(
+      await Promise.allSettled(
         batch.map(async (sub) => {
           const res = await sendSMS(sub.phone_number, body)
           if (res.sent) {
