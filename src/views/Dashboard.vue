@@ -50,7 +50,7 @@ const priorityFeed = computed(() =>
 
       <div class="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
         <div class="max-w-2xl">
-          <h1 class="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">Know what's known, see what's fresh.</h1>
+          <h1 class="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">Know your location's security report.</h1>
           <p class="mt-4 text-base leading-relaxed text-white/75 sm:text-lg">
             What's being reported nearby, and how sure we are about it, organized transparently from community reports,
             updated as new information comes in.

@@ -7,6 +7,7 @@ import SignalMark from './components/SignalMark.vue'
 import NotificationBell from './components/NotificationBell.vue'
 import NavIcon from './components/NavIcon.vue'
 import FloatingActions from './components/FloatingActions.vue'
+import AccountMenu from './components/AccountMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -193,14 +194,7 @@ watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
 
         <div class="flex shrink-0 items-center gap-1.5">
           <NotificationBell :can-review="canReview" />
-          <template v-if="authState.user">
-            <span class="hidden h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white sm:flex" style="background-color: var(--color-brand-500)">
-              {{ initials }}
-            </span>
-            <button type="button" @click="handleSignOut" class="rounded-full px-3.5 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
-              Sign out
-            </button>
-          </template>
+          <AccountMenu v-if="authState.user" :initials="initials" class="hidden sm:block" />
           <RouterLink v-else to="/login" class="rounded-full px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
             Sign in
           </RouterLink>

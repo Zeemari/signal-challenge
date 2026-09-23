@@ -1,5 +1,5 @@
 import { getServerClient } from '../_lib/supabase.js'
-import { normalizePhoneNumber } from '../_lib/sms.js'
+import { normalizePhoneNumber, checkVerificationCode } from '../_lib/sms.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -37,31 +37,23 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'Maximum code verification attempts exceeded. Please request a new code.' })
     }
 
-    // Check code expiry
-    if (!sub.confirmation_expires_at || new Date(sub.confirmation_expires_at).getTime() < Date.now()) {
-      return res.status(400).json({ error: 'Confirmation code has expired. Please request a new code.' })
-    }
-
-    // Validate code string
-    const trimmedCode = code.trim()
-    if (sub.confirmation_code !== trimmedCode) {
-      // Increment attempt counter
+    // Twilio Verify owns code generation, expiry, and matching — we just ask it.
+    const checkRes = await checkVerificationCode(sub.phone_number, code.trim())
+    if (!checkRes.approved) {
       await db
         .from('sms_subscriptions')
         .update({ attempts_count: sub.attempts_count + 1 })
         .eq('id', sub.id)
 
-      return res.status(400).json({ error: 'Incorrect confirmation code' })
+      return res.status(400).json({ error: 'Incorrect or expired confirmation code' })
     }
 
-    // Activate subscription and clear confirmation code
+    // Activate subscription
     const now = new Date().toISOString()
     const { error: updateErr } = await db
       .from('sms_subscriptions')
       .update({
         status: 'active',
-        confirmation_code: null,
-        confirmation_expires_at: null,
         updated_at: now,
       })
       .eq('id', sub.id)
