@@ -14,9 +14,9 @@ const messages = ref([])
 const scrollEl = ref(null)
 
 const suggestions = [
+  'What do we know about Mopol Junction?',
   'What do we know about Northern Road?',
   'Any updates on Market Road?',
-  "What's happening at Riverside Junction?",
 ]
 
 let nextId = 1
@@ -80,7 +80,7 @@ async function ask(q) {
     <template v-else>
       <h1 class="text-[28px] font-bold leading-tight tracking-tight text-slate-900">Ask SIGNAL</h1>
       <p class="mt-1.5 mb-5 text-sm text-slate-500">
-        Ask about a specific location. Answers come only from stored reports — never a safety verdict.
+        Ask about a specific location. Answers come from stored reports evaluated by AI — never a permanent verdict.
       </p>
     </template>
 
@@ -119,7 +119,7 @@ async function ask(q) {
             <p v-if="m.error" class="rounded-2xl rounded-bl-sm bg-red-50 px-3.5 py-2 text-sm text-red-700">{{ m.error }}</p>
 
             <section v-else class="rounded-2xl rounded-bl-sm border border-slate-200 bg-white p-3.5">
-              <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <div class="flex items-center gap-1.5">
                   <svg class="h-3.5 w-3.5 shrink-0" style="color: var(--color-brand-500)" viewBox="0 0 20 20" fill="none">
                     <rect x="3.5" y="2.5" width="13" height="15" rx="1.5" stroke="currentColor" stroke-width="1.4" />
@@ -127,17 +127,50 @@ async function ask(q) {
                   </svg>
                   <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Situation report</h2>
                 </div>
-                <span
-                  v-if="m.answer.matched"
-                  class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"
-                >
-                  Apply with caution
+
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    v-if="m.answer.is_unsafe"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm"
+                  >
+                    ⚠️ UNSAFE - Verified Alert
+                  </span>
+
+                  <span
+                    v-if="m.answer.matched"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 border border-amber-200"
+                  >
+                    {{ m.answer.caution_guidance || 'Apply with caution' }}
+                  </span>
+                </div>
+              </div>
+
+              <p class="mt-2 text-sm leading-relaxed text-slate-800">{{ m.answer.current_picture }}</p>
+              
+              <div v-if="m.answer.matched" class="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-400 border-t border-slate-100 pt-2">
+                <span>Updated {{ formatClock(m.answer.last_updated) }} &middot; not independently verified</span>
+                <span v-if="m.answer.total_reports_analyzed" class="font-medium text-slate-600">
+                  {{ m.answer.total_reports_analyzed }} total report(s) evaluated
                 </span>
               </div>
-              <p class="mt-2 text-sm leading-relaxed text-slate-800">{{ m.answer.current_picture }}</p>
-              <p v-if="m.answer.matched && m.answer.last_updated" class="mt-2 text-[11px] text-slate-400">
-                Updated {{ formatClock(m.answer.last_updated) }} · not independently verified
-              </p>
+
+              <div v-if="m.answer.sources_summary?.length" class="mt-3 bg-slate-50 rounded-xl p-2.5">
+                <h3 class="mb-1 text-xs font-semibold text-slate-800 flex items-center gap-1">
+                  <svg class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  Sources Summary
+                </h3>
+                <div class="flex flex-wrap gap-1.5 mt-1">
+                  <span
+                    v-for="(src, idx) in m.answer.sources_summary"
+                    :key="idx"
+                    class="rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700 font-medium"
+                  >
+                    {{ src }}
+                  </span>
+                </div>
+              </div>
 
               <div v-if="m.answer.what_supports_this?.length" class="mt-3 border-t border-slate-100 pt-2.5">
                 <h3 class="mb-1 flex items-center gap-1 text-xs font-semibold text-slate-900">

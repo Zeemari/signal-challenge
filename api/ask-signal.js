@@ -1,21 +1,29 @@
 import { getServerClient } from './_lib/supabase.js'
 import { askForJSON } from './_lib/anthropic.js'
 
-const ASK_SYSTEM = `You answer a question about a specific location using ONLY the reports provided to you.
+const ASK_SYSTEM = `You analyze ALL reports provided for a specific location and generate an evidence-based situation summary.
 Rules:
-- Never declare the location "safe" or "dangerous". Describe only what was reported and how well it's corroborated.
-- Never state or imply that a report is confirmed, verified, or certain — these are unverified community reports. Frame "current_picture" as a hedged situation report the reader should apply with caution, not a conclusion.
-- Never invent reports, counts, or details that are not in the provided data.
-- If the reports disagree, say so plainly instead of picking one as true.
-- "current_picture" must be detailed, 2-4 sentences: state the report count and source mix (direct/second-hand/authority/etc.), AND the specific details actually mentioned in the reports (what was seen/heard, numbers/timing if stated) — attributed to the reports ("reports describe...") rather than asserted as fact. e.g.: "4 reports have been received around <location> in the last 12 minutes. 2 direct observations describe 3 motorcycles speeding through and people turning back; 2 second-hand reports mention shouting and stopped traffic. ..."
-- "what_supports_this" is a short list of evidence strings (e.g. "2 direct observations", "Reports occurred within 12 minutes").
-- "what_is_unknown" is a short list of explicit unknowns — never leave this empty.
-- Respond with ONLY a JSON object, no other text:
-{
-  "current_picture": "...",
-  "what_supports_this": ["...", "..."],
-  "what_is_unknown": ["...", "..."]
-}`
+1. RELEVANCE & SYNTHESIS:
+   - Evaluate all provided reports based on their date/recency, location match, source reliability (verified correspondent, authority, direct observation vs secondhand), AND the specific information provided.
+   - Prioritize recent reports while contextualizing older historical reports.
+2. CAUTION GUIDANCE & VERDICT:
+   - Never declare an absolute permanent verdict.
+   - Dynamically determine "caution_guidance" (e.g. "Apply with caution", "High caution advised", "Corroborated reports") based on evidence quality and recency.
+3. VERIFIED CORRESPONDENT / UNSAFE BADGING:
+   - If any report comes from a verified correspondent, authority, or official institution reporting an active threat or dangerous incident, set "is_unsafe": true and provide "unsafe_badge_reason". Otherwise set "is_unsafe": false.
+4. SOURCES SUMMARY:
+   - Provide a concise array of source attribution strings in "sources_summary" (e.g. ["6 direct observations", "1 verified correspondent report"]).
+5. OUTPUT FORMAT:
+   - Respond with ONLY a JSON object:
+   {
+     "current_picture": "Detailed 2-4 sentence situation report attributing details (timing, vehicles, crowd size, noise) to the reports.",
+     "caution_guidance": "Dynamic caution tag",
+     "is_unsafe": false,
+     "unsafe_badge_reason": null,
+     "sources_summary": ["...", "..."],
+     "what_supports_this": ["...", "..."],
+     "what_is_unknown": ["...", "..."]
+   }`
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -32,14 +40,8 @@ export default async function handler(req, res) {
     const { data: signals, error: signalsError } = await supabase.from('signals').select('*')
     if (signalsError) throw signalsError
 
-    // Plain substring matching breaks two ways: punctuation/word-order
-    // differences, and — since the location picker stores reports as
-    // "<landmark>, <LGA>, <State>" — a question naming just the landmark
-    // ("Mopol Junction") won't contain the LGA/state text at all.
-    // Normalize both sides, and match on the landmark segment alone before
-    // falling back to the full qualified string.
     const normalize = (text) =>
-      text
+      (text || '')
         .toLowerCase()
         .replace(/[^\p{L}\p{N}\s]/gu, ' ')
         .replace(/\s+/g, ' ')
@@ -58,45 +60,77 @@ export default async function handler(req, res) {
       return words.length > 0 && words.every((w) => normalizedQuestion.includes(w))
     })
 
-    if (!matchedSignal) {
+    // Determine search terms and location_id
+    const landmarkText = matchedSignal
+      ? matchedSignal.location.split(',')[0].trim()
+      : question.trim().split(' ')[0]
+
+    let reportsQuery = supabase.from('reports').select('*')
+
+    if (matchedSignal?.location_id) {
+      reportsQuery = reportsQuery.or(`location_id.eq.${matchedSignal.location_id},location.ilike.%${landmarkText}%`)
+    } else {
+      reportsQuery = reportsQuery.ilike('location', `%${landmarkText}%`)
+    }
+
+    const { data: reports, error: reportsError } = await reportsQuery.order('reported_at', { ascending: false })
+    if (reportsError) throw reportsError
+
+    if (!reports || reports.length === 0) {
       return res.status(200).json({
         matched: false,
         current_picture: "SIGNAL doesn't have any reports for that location yet.",
+        caution_guidance: "No reports on record",
+        is_unsafe: false,
+        sources_summary: [],
         what_supports_this: [],
         what_is_unknown: ['No reports have been received for this location.'],
         last_updated: null,
       })
     }
 
-    const { data: reports, error: reportsError } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('signal_id', matchedSignal.id)
-      .order('reported_at', { ascending: false })
-    if (reportsError) throw reportsError
-
     let answer
     try {
       const reportLines = reports
-        .map((r) => `- [${r.source_type}, reported_at=${r.reported_at}] ${r.content}`)
+        .map(
+          (r) =>
+            `- [Source: ${r.source_type}${r.responder_name ? ` (${r.responder_name}, ${r.responder_institution_name || 'Verified Correspondent'})` : ''}, reported_at=${r.reported_at}, perceived=${r.perceived_situation || 'unknown'}] ${r.content}`
+        )
         .join('\n')
+
       answer = await askForJSON({
         system: ASK_SYSTEM,
-        prompt: `Question: "${question}"\nLocation: ${matchedSignal.location}\nCurrent time: ${new Date().toISOString()}\nReports:\n${reportLines}`,
-        maxTokens: 768,
+        prompt: `Question: "${question}"\nTarget Location: ${matchedSignal?.location || question}\nCurrent Time: ${new Date().toISOString()}\nTotal System Reports Found: ${reports.length}\nReports List:\n${reportLines}`,
+        maxTokens: 1024,
       })
-    } catch {
+    } catch (askErr) {
+      console.error('[Ask SIGNAL AI Execution Error]:', {
+        name: askErr?.name,
+        message: askErr?.message,
+        status: askErr?.status || askErr?.statusCode,
+      })
+      const isUnsafeReport = reports.some(
+        (r) => r.perceived_situation === 'dangerous' || r.responder_name
+      )
       answer = {
-        current_picture: matchedSignal.summary,
-        what_supports_this: [`${reports.length} report(s) on record`],
+        current_picture: matchedSignal?.summary || `Received ${reports.length} report(s) for this location.`,
+        caution_guidance: 'Apply with caution',
+        is_unsafe: isUnsafeReport,
+        unsafe_badge_reason: isUnsafeReport ? 'Dangerous conditions or verified correspondent report on record' : null,
+        sources_summary: [`${reports.length} report(s) on record`],
+        what_supports_this: [`${reports.length} report(s) found in system`],
         what_is_unknown: ['The nature of the activity has not been independently confirmed.'],
       }
     }
 
+    const lastUpdated = reports[0]?.reported_at || matchedSignal?.last_updated || new Date().toISOString()
+
     return res.status(200).json({
       matched: true,
+      location: matchedSignal?.location || question,
+      total_reports_analyzed: reports.length,
       ...answer,
-      last_updated: matchedSignal.last_updated,
+      last_updated: lastUpdated,
     })
   } catch (err) {
     console.error(err)
