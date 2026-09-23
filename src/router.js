@@ -4,7 +4,7 @@ import SubmitReport from './views/SubmitReport.vue'
 import SignalDetailView from './views/SignalDetailView.vue'
 import AskSignalView from './views/AskSignalView.vue'
 import AuthView from './views/AuthView.vue'
-import MyReportsView from './views/MyReportsView.vue'
+import ReportsView from './views/ReportsView.vue'
 import ResponderDashboard from './views/ResponderDashboard.vue'
 import AdminUsersView from './views/AdminUsersView.vue'
 import AdminLocationsView from './views/AdminLocationsView.vue'
@@ -16,17 +16,17 @@ import { navLoading } from './lib/navLoading.js'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'dashboard', component: Dashboard, meta: { title: 'Signals', wide: true } },
+    { path: '/', name: 'dashboard', component: Dashboard, meta: { title: 'Signals' } },
     { path: '/report', name: 'report', component: SubmitReport, meta: { title: 'Report something' } },
     { path: '/signal/:id', name: 'signal-detail', component: SignalDetailView, props: true, meta: { title: 'Signal' } },
     { path: '/ask', name: 'ask', component: AskSignalView, meta: { title: 'Ask SIGNAL' } },
-    { path: '/login', name: 'login', component: AuthView, props: { mode: 'login' }, meta: { title: 'Account access' } },
-    { path: '/signup', name: 'signup', component: AuthView, props: { mode: 'signup' }, meta: { title: 'Account access' } },
-    { path: '/my-reports', name: 'my-reports', component: MyReportsView, meta: { permission: 'reports:read:own', title: 'My reports' } },
+    { path: '/login', name: 'login', component: AuthView, props: { mode: 'login' }, meta: { title: 'Account access', bare: true } },
+    { path: '/signup', name: 'signup', component: AuthView, props: { mode: 'signup' }, meta: { title: 'Account access', bare: true } },
+    { path: '/my-reports', name: 'my-reports', component: ReportsView, meta: { permission: 'reports:read:own', title: 'Reports' } },
     { path: '/responder', name: 'responder', component: ResponderDashboard, meta: { permission: 'reports:read:all', title: 'Responder workspace' } },
     { path: '/admin', redirect: '/admin/locations' },
-    { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { permission: 'users:manage', title: 'Users', wide: true } },
-    { path: '/admin/locations', name: 'admin-locations', component: AdminLocationsView, meta: { permission: 'users:manage', title: 'Locations', wide: true } },
+    { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { permission: 'users:manage', title: 'Users' } },
+    { path: '/admin/locations', name: 'admin-locations', component: AdminLocationsView, meta: { permission: 'users:manage', title: 'Locations' } },
     { path: '/access-denied', name: 'access-denied', component: AccessDeniedView, meta: { title: 'Access denied' } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { title: 'Forbidden' } },
   ],

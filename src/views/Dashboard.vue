@@ -1,60 +1,17 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { supabase } from '../lib/supabase.js'
+import { computed, onMounted } from 'vue'
 import { freshnessOf } from '../lib/time.js'
 import { hasRole } from '../lib/auth.js'
 import { STATUS_META } from '../lib/sources.js'
+import { useSignalsFeed } from '../lib/useSignalsFeed.js'
 import SignalCard from '../components/SignalCard.vue'
 import SignalMark from '../components/SignalMark.vue'
 import StatusPill from '../components/StatusPill.vue'
 
-const signals = ref([])
-const reportCounts = ref({})
-const loading = ref(true)
-const error = ref(null)
+const { signals, reportCounts, loading, error, load } = useSignalsFeed()
 const isResponder = computed(() => hasRole('responder'))
 
-onMounted(async () => {
-  try {
-    const { data: signalRows, error: signalsError } = await supabase
-      .from('signals')
-      .select('*')
-      .order('last_updated', { ascending: false })
-    if (signalsError) throw signalsError
-    signals.value = signalRows ?? []
-
-    let reportRows = []
-    try {
-      const response = await fetch('/api/public-signals')
-      const contentType = response.headers.get('content-type') || ''
-      if (response.ok && contentType.includes('application/json')) {
-        const publicData = await response.json()
-        if (publicData?.signals) {
-          reportRows = publicData.signals.flatMap((signal) =>
-            Array.from({ length: signal.report_count }, () => ({ signal_id: signal.id }))
-          )
-        }
-      } else {
-        const { data: rData } = await supabase.from('reports').select('signal_id')
-        reportRows = rData ?? []
-      }
-    } catch {
-      const { data: rData } = await supabase.from('reports').select('signal_id')
-      reportRows = rData ?? []
-    }
-
-    const counts = {}
-    for (const r of reportRows ?? []) {
-      if (!r.signal_id) continue
-      counts[r.signal_id] = (counts[r.signal_id] ?? 0) + 1
-    }
-    reportCounts.value = counts
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    loading.value = false
-  }
-})
+onMounted(load)
 
 const recentCount = computed(
   () => signals.value.filter((s) => freshnessOf(s.last_updated).level === 'recent').length
@@ -84,30 +41,42 @@ const priorityFeed = computed(() =>
 
 <template>
   <div>
-    <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="text-[28px] font-bold leading-tight tracking-tight text-slate-900">Current signals</h1>
-        <p class="mt-1.5 text-sm text-slate-500">What's being reported nearby, and how sure we are about it.</p>
-      </div>
-    </div>
+    <!-- Hero -->
+    <section class="relative mb-8 overflow-hidden rounded-3xl px-6 py-12 text-white sm:px-10 sm:py-16" style="background-color: var(--color-brand-700)">
+      <div class="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full" style="background-color: var(--color-brand-600)" />
+      <div class="pointer-events-none absolute -bottom-28 -left-10 h-80 w-80 rounded-full" style="background-color: var(--color-brand-800)" />
 
-    <RouterLink
-      v-if="isResponder"
-      to="/ask"
-      class="mb-6 flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-[0.99]"
-    >
-      <span class="flex items-center gap-2.5">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style="background-color: var(--color-brand-50)">
-          <svg class="h-4 w-4" style="color: var(--color-brand-600)" viewBox="0 0 20 20" fill="none">
-            <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5v5A2.5 2.5 0 0 1 14.5 13H9l-3.8 3.2A.6.6 0 0 1 4.2 15.7V13h-.7A2.5 2.5 0 0 1 1 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
-        Ask SIGNAL about a location
-      </span>
-      <svg class="h-4 w-4 shrink-0 text-slate-300" viewBox="0 0 20 20" fill="none">
-        <path d="M7.5 5l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-    </RouterLink>
+      <div class="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+        <div class="max-w-2xl">
+          <h1 class="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">Know what's known, see what's fresh.</h1>
+          <p class="mt-4 text-base leading-relaxed text-white/75 sm:text-lg">
+            What's being reported nearby, and how sure we are about it, organized transparently from community reports,
+            updated as new information comes in.
+          </p>
+        </div>
+        <div class="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
+          <RouterLink
+            to="/report"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-0"
+            style="color: var(--color-brand-700)"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
+              <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+            Report Something
+          </RouterLink>
+          <RouterLink
+            to="/ask"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+          >
+            Ask SIGNAL about a location
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
+              <path d="M7.5 5l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </RouterLink>
+        </div>
+      </div>
+    </section>
 
     <section v-if="isResponder && !loading && !error && situationSummary" class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
       <div class="flex items-center gap-1.5">
@@ -185,8 +154,8 @@ const priorityFeed = computed(() =>
       </div>
     </div>
 
-    <div v-if="loading" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <div v-for="i in 6" :key="i" class="skeleton h-36 rounded-2xl border border-slate-200" />
+    <div v-if="loading" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div v-for="i in 8" :key="i" class="skeleton h-36 rounded-2xl border border-slate-200" />
     </div>
 
     <div v-else-if="error" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -198,7 +167,7 @@ const priorityFeed = computed(() =>
       <p class="mt-1 text-sm text-slate-500">Reports will appear here as they come in.</p>
     </div>
 
-    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       <SignalCard
         v-for="signal in signals"
         :key="signal.id"

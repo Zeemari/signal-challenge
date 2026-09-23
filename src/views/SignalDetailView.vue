@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { supabase } from '../lib/supabase.js'
+import { apiFetch } from '../lib/api.js'
+import { hasPermission } from '../lib/auth.js'
 import StatusPill from '../components/StatusPill.vue'
 import FreshnessBadge from '../components/FreshnessBadge.vue'
 import WhySignalPanel from '../components/WhySignalPanel.vue'
@@ -14,6 +16,12 @@ const signal = ref(null)
 const reports = ref([])
 const loading = ref(true)
 const error = ref(null)
+const canUpdate = computed(() => hasPermission('incidents:update'))
+const statusOptions = Object.keys(STATUS_META)
+const notes = ref('')
+const updating = ref(false)
+const updateError = ref(null)
+const updateSaved = ref(false)
 
 onMounted(async () => {
   try {
@@ -24,6 +32,7 @@ onMounted(async () => {
       .single()
     if (signalError) throw signalError
     signal.value = signalRow
+    notes.value = signalRow.responder_notes || ''
 
     let reportRows = []
     try {
@@ -61,6 +70,25 @@ const sourceBreakdown = computed(() => {
 const firsthandCount = computed(() =>
   reports.value.filter((r) => isFirsthand(r.source_type)).length
 )
+
+async function setStatus(status) {
+  if (updating.value || !signal.value) return
+  updating.value = true
+  updateError.value = null
+  updateSaved.value = false
+  try {
+    const { signal: updated } = await apiFetch('/api/update-signal', {
+      method: 'PATCH',
+      body: JSON.stringify({ signal_id: signal.value.id, status, notes: notes.value }),
+    })
+    signal.value = { ...signal.value, ...updated }
+    updateSaved.value = true
+  } catch (e) {
+    updateError.value = e.message
+  } finally {
+    updating.value = false
+  }
+}
 </script>
 
 <template>
@@ -136,6 +164,37 @@ const firsthandCount = computed(() =>
             </div>
           </div>
         </div>
+      </section>
+
+      <section v-if="canUpdate" class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Responder actions</h2>
+        <p class="mt-1 text-sm text-slate-500">Update this signal's status as new information comes in.</p>
+
+        <div class="mt-3 flex flex-wrap gap-1.5">
+          <button
+            v-for="status in statusOptions"
+            :key="status"
+            type="button"
+            :disabled="updating"
+            @click="setStatus(status)"
+            class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+            :class="signal.status === status ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'"
+            :style="signal.status === status ? { backgroundColor: STATUS_META[status].dot } : {}"
+          >
+            {{ STATUS_META[status].label }}
+          </button>
+        </div>
+
+        <textarea
+          v-model="notes"
+          rows="2"
+          placeholder="Optional responder note"
+          class="mt-3 w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+          style="--tw-ring-color: var(--color-brand-400)"
+        />
+
+        <p v-if="updateError" class="mt-2 text-xs text-red-600">{{ updateError }}</p>
+        <p v-else-if="updateSaved" class="mt-2 text-xs font-medium" style="color: var(--color-fresh)">Saved.</p>
       </section>
 
       <section v-if="signal.status === 'conflicting'" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
