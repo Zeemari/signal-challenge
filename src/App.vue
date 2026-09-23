@@ -27,26 +27,27 @@ const canManageUsers = computed(() => hasPermission('users:manage'))
           </span>
         </RouterLink>
 
-        <nav class="flex items-center gap-1 text-sm font-medium">
+        <nav class="flex flex-wrap items-center gap-1 text-sm font-medium">
           <RouterLink
             to="/"
             data-nav
-            class="rounded-lg px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             Signals
           </RouterLink>
           <RouterLink
             to="/ask"
             data-nav
-            class="rounded-lg px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             Ask SIGNAL
           </RouterLink>
-          <RouterLink v-if='authState.user' to='/my-reports' class='rounded-lg px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900'>My reports</RouterLink>
-          <RouterLink v-if='canReview' to='/responder' class='rounded-lg px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900'>Responder</RouterLink>
-          <RouterLink v-if='canManageUsers' to='/admin/users' class='rounded-lg px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900'>Admin</RouterLink>
-          <RouterLink v-if='!authState.user' to='/login' class='rounded-lg px-3 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900'>Sign in</RouterLink>
-          <button v-else type='button' @click='signOut' class='rounded-lg px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900'>Sign out</button>
+          <RouterLink v-if="authState.user" to="/my-reports" class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">My reports</RouterLink>
+          <RouterLink v-if="canReview" to="/responder" class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">Responder</RouterLink>
+          <RouterLink v-if="canManageUsers" to="/admin/locations" class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">Locations</RouterLink>
+          <RouterLink v-if="canManageUsers" to="/admin/users" class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">Users</RouterLink>
+          <RouterLink v-if="!authState.user" to="/login" class="rounded-lg px-2.5 py-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">Sign in</RouterLink>
+          <button v-else type="button" @click="signOut" class="rounded-lg px-2.5 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">Sign out</button>
         </nav>
       </div>
     </header>

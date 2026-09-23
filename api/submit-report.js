@@ -14,7 +14,18 @@ function inputOf(body = {}) {
   const date = body.reported_at ? new Date(body.reported_at) : new Date()
   if (Number.isNaN(date.getTime()) || date.getTime() > Date.now()) throw Object.assign(new Error('Invalid report time'), { status: 400 })
   const perceived_situation = SITUATIONS.has(body.perceived_situation) ? body.perceived_situation : 'not_sure'
-  return { content, location, source_type: body.source_type, reported_at: date.toISOString(), category: typeof body.category === 'string' ? body.category.trim().slice(0, 80) : null, perceived_situation }
+  return {
+    content,
+    location,
+    source_type: body.source_type,
+    reported_at: date.toISOString(),
+    category: typeof body.category === 'string' ? body.category.trim().slice(0, 80) : null,
+    perceived_situation,
+    state_id: body.state_id || null,
+    lga_id: body.lga_id || null,
+    location_id: body.location_id || null,
+    custom_location_name: typeof body.custom_location_name === 'string' ? body.custom_location_name.trim() : null,
+  }
 }
 
 export default async function handler(req, res) {
@@ -29,10 +40,45 @@ export default async function handler(req, res) {
       responderName = profile.display_name || user?.user_metadata?.display_name || (user?.email ? user.email.split('@')[0] : 'Responder')
     }
 
+    let finalLocationId = input.location_id
+    let finalLocationText = input.location
+
+    // Handle community suggested custom location name
+    if (input.lga_id && input.custom_location_name) {
+      // Check if location already exists in LGA
+      const { data: existingLoc } = await db
+        .from('locations')
+        .select('id, name, status')
+        .eq('lga_id', input.lga_id)
+        .ilike('name', input.custom_location_name)
+        .maybeSingle()
+
+      if (existingLoc) {
+        finalLocationId = existingLoc.id
+      } else {
+        // Create new pending community location
+        const { data: newLoc, error: newLocErr } = await db
+          .from('locations')
+          .insert({
+            lga_id: input.lga_id,
+            name: input.custom_location_name,
+            source: 'community',
+            status: 'pending',
+            submitted_by: user?.id || null,
+          })
+          .select('id, name')
+          .single()
+
+        if (!newLocErr && newLoc) {
+          finalLocationId = newLoc.id
+        }
+      }
+    }
+
     const ai = await extract(input)
     const insertPayload = {
       content: input.content,
-      location: input.location,
+      location: finalLocationText,
       source_type: input.source_type,
       category: input.category || ai.event_type,
       reported_at: input.reported_at,
@@ -52,18 +98,37 @@ export default async function handler(req, res) {
     if (input.perceived_situation) {
       insertPayload.perceived_situation = input.perceived_situation
     }
+    if (finalLocationId) {
+      insertPayload.location_id = finalLocationId
+    }
+    if (input.state_id) {
+      insertPayload.state_id = input.state_id
+    }
+    if (input.lga_id) {
+      insertPayload.lga_id = input.lga_id
+    }
 
     let report = null
     let reportError = null
 
-    const initialInsert = await db.from('reports').insert(insertPayload).select().single()
+    const initialInsert = await db.from('reports').insert(insertPayload).select(`
+      *,
+      location_ref:locations (
+        id,
+        name,
+        status,
+        source
+      )
+    `).single()
+
     report = initialInsert.data
     reportError = initialInsert.error
 
     if (reportError && (reportError.message?.toLowerCase().includes('column') || reportError.code === 'PGRST204')) {
+      // Fallback insert if new location foreign keys haven't been migrated yet
       const basePayload = {
         content: input.content,
-        location: input.location,
+        location: finalLocationText,
         source_type: input.source_type,
         category: input.category || ai.event_type,
         reported_at: input.reported_at,
@@ -73,6 +138,7 @@ export default async function handler(req, res) {
         ai_urgency: ['low', 'medium', 'high'].includes(ai.urgency) ? ai.urgency : 'medium',
         ai_confidence: 'unverified',
       }
+      if (user?.id) basePayload.created_by = user.id
       const retryInsert = await db.from('reports').insert(basePayload).select().single()
       report = retryInsert.data
       reportError = retryInsert.error

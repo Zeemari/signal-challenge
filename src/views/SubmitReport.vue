@@ -4,10 +4,9 @@ import { useRouter } from 'vue-router'
 import { SOURCE_TYPES } from '../lib/sources.js'
 import { apiFetch } from '../lib/api.js'
 import { authState } from '../lib/auth.js'
+import CascadingLocationPicker from '../components/CascadingLocationPicker.vue'
 
 const router = useRouter()
-
-const knownLocations = ['Northern Road', 'Market Road', 'Riverside Junction']
 
 const SITUATION_OPTIONS = [
   { value: 'safe', label: 'Safe', icon: '🟢', bgClass: 'bg-emerald-50 border-emerald-300 text-emerald-900', activeClass: 'ring-2 ring-emerald-500 border-emerald-500' },
@@ -18,8 +17,14 @@ const SITUATION_OPTIONS = [
 ]
 
 const content = ref('')
-const location = ref(knownLocations[0])
-const customLocation = ref('')
+const locationState = ref({
+  state_id: '',
+  lga_id: '',
+  location_id: null,
+  custom_location_name: null,
+  location_text: '',
+  isValid: false,
+})
 const sourceType = ref('direct_observation')
 const perceivedSituation = ref('cautious')
 const category = ref('')
@@ -29,11 +34,7 @@ const submitting = ref(false)
 const error = ref(null)
 const result = ref(null)
 
-const effectiveLocation = computed(() =>
-  location.value === '__other__' ? customLocation.value.trim() : location.value
-)
-
-const canSubmit = computed(() => content.value.trim().length > 0 && effectiveLocation.value.length > 0)
+const canSubmit = computed(() => content.value.trim().length > 0 && locationState.value.isValid)
 
 const responderName = computed(() =>
   authState.profile?.display_name || authState.user?.email?.split('@')[0] || 'Responder'
@@ -49,7 +50,11 @@ async function submit() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: content.value.trim(),
-        location: effectiveLocation.value,
+        location: locationState.value.location_text,
+        state_id: locationState.value.state_id,
+        lga_id: locationState.value.lga_id,
+        location_id: locationState.value.location_id,
+        custom_location_name: locationState.value.custom_location_name,
         source_type: sourceType.value,
         perceived_situation: perceivedSituation.value,
         category: category.value.trim() || undefined,
@@ -118,24 +123,10 @@ async function submit() {
         ></textarea>
       </div>
 
-      <!-- Location -->
+      <!-- Cascading Location Picker -->
       <div>
         <label class="mb-1.5 block text-sm font-semibold text-slate-800">Location</label>
-        <select
-          v-model="location"
-          class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-transparent focus:outline-none focus:ring-2"
-          style="--tw-ring-color: var(--color-brand-400)"
-        >
-          <option v-for="loc in knownLocations" :key="loc" :value="loc">{{ loc }}</option>
-          <option value="__other__">Other location…</option>
-        </select>
-        <input
-          v-if="location === '__other__'"
-          v-model="customLocation"
-          placeholder="Enter location name"
-          class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2"
-          style="--tw-ring-color: var(--color-brand-400)"
-        />
+        <CascadingLocationPicker v-model="locationState" />
       </div>
 
       <!-- Source type -->

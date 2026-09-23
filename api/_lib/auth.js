@@ -10,6 +10,8 @@ export const PERMISSIONS = Object.freeze({
   INCIDENT_UPDATE: 'incidents:update',
   USERS_MANAGE: 'users:manage',
   ROLES_MANAGE: 'roles:manage',
+  LOCATIONS_REVIEW: 'locations:review',
+  LOCATIONS_MANAGE: 'locations:manage',
 })
 
 const ROLE_PERMISSIONS = Object.freeze({
@@ -22,6 +24,7 @@ const ROLE_PERMISSIONS = Object.freeze({
     PERMISSIONS.REPORT_VERIFY,
     PERMISSIONS.REPORT_REJECT,
     PERMISSIONS.INCIDENT_UPDATE,
+    PERMISSIONS.LOCATIONS_REVIEW,
   ]),
   admin: new Set([
     PERMISSIONS.REPORT_CREATE,
@@ -33,6 +36,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     PERMISSIONS.INCIDENT_UPDATE,
     PERMISSIONS.USERS_MANAGE,
     PERMISSIONS.ROLES_MANAGE,
+    PERMISSIONS.LOCATIONS_REVIEW,
+    PERMISSIONS.LOCATIONS_MANAGE,
   ]),
 })
 
