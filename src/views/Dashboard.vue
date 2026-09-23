@@ -7,12 +7,14 @@ import { STATUS_META } from '../lib/sources.js'
 import SignalCard from '../components/SignalCard.vue'
 import SignalMark from '../components/SignalMark.vue'
 import StatusPill from '../components/StatusPill.vue'
+import SmsSubscribeModal from '../components/SmsSubscribeModal.vue'
 
 const signals = ref([])
 const reportCounts = ref({})
 const loading = ref(true)
 const error = ref(null)
 const isResponder = computed(() => hasRole('responder'))
+const showSmsModal = ref(false)
 
 onMounted(async () => {
   try {
@@ -84,11 +86,20 @@ const priorityFeed = computed(() =>
 
 <template>
   <div>
-    <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-white/60 bg-white/50 p-5 shadow-sm backdrop-blur sm:p-6">
       <div>
-        <h1 class="text-[28px] font-bold leading-tight tracking-tight text-slate-900">Current signals</h1>
-        <p class="mt-1.5 text-sm text-slate-500">What's being reported nearby, and how sure we are about it.</p>
+        <h1 class="text-3xl font-extrabold leading-[1.1] tracking-tight text-slate-900 sm:text-4xl">Current signals</h1>
+        <p class="mt-2 text-sm text-slate-600 sm:text-[15px]">What's being reported nearby, and how sure we are about it.</p>
       </div>
+      <button
+        @click="showSmsModal = true"
+        class="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-all hover:bg-teal-700"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        Get SMS Alerts
+      </button>
     </div>
 
     <RouterLink
@@ -206,5 +217,21 @@ const priorityFeed = computed(() =>
         :report-count="reportCounts[signal.id] ?? 0"
       />
     </div>
+
+    <RouterLink
+      to="/ask"
+      class="mt-6 flex items-center justify-center gap-1.5 rounded-2xl border border-white/60 bg-white/70 py-3.5 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur transition-all hover:bg-white active:scale-[0.99]"
+    >
+      Ask SIGNAL about a location
+      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
+        <path d="M7.5 5l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </RouterLink>
+
+    <SmsSubscribeModal
+      v-if="showSmsModal"
+      location-name="Your Area"
+      @close="showSmsModal = false"
+    />
   </div>
 </template>

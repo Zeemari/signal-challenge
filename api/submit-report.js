@@ -1,7 +1,7 @@
 import { askForJSON } from './_lib/anthropic.js'
 import { getOptionalAuth, sendAuthError } from './_lib/auth.js'
 import { getServerClient } from './_lib/supabase.js'
-import { sendSMS } from './_lib/sms.js'
+import { sendSMS, dispatchSignalAlerts } from './_lib/sms.js'
 
 const SOURCES = new Set(['direct_observation', 'trusted_community', 'authority', 'phone', 'whatsapp', 'secondhand', 'unknown'])
 const STATUSES = new Set(['emerging', 'corroborating', 'conflicting', 'unconfirmed'])
@@ -162,6 +162,11 @@ export default async function handler(req, res) {
     if (linkError) console.error('Signal link error:', linkError)
 
     const updated = await classifyAndUpdate(db, signal, input.location)
+
+    // Trigger outbound SMS alerts to subscribed citizens if signal reaches an elevated state
+    dispatchSignalAlerts(db, updated, { previousStatus: signal.status }).catch((e) =>
+      console.error('[Citizen SMS Alert Error]:', e)
+    )
 
     const isDangerous = input.perceived_situation === 'dangerous' || ai.urgency === 'high'
     if (isDangerous) {
