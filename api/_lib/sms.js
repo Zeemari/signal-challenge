@@ -1,15 +1,4 @@
-import Twilio from 'twilio'
-
-let client = null
-let warnedMissingConfig = false
-
-function getClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  if (!sid || !authToken) return null
-  if (!client) client = Twilio(sid, authToken)
-  return client
-}
+import { sendSms, validateSendchampSignature } from './sendchamp.js'
 
 export function normalizePhoneNumber(rawPhone) {
   if (typeof rawPhone !== 'string') return null
@@ -77,47 +66,29 @@ export async function checkVerificationCode(to, code) {
   }
 }
 
-export function validateTwilioSignature(req, body = {}) {
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  if (!authToken) return false
-  const signature = req.headers?.['x-twilio-signature']
-  if (!signature) return false
-
-  const host = req.headers?.host || 'localhost'
-  const proto = req.headers?.['x-forwarded-proto'] || 'http'
-  const url = `${proto}://${host}${req.url}`
-
-  try {
-    return Twilio.validateRequest(authToken, signature, url, body)
-  } catch (err) {
-    console.error('[SMS Webhook] Signature validation error:', err.message)
-    return false
-  }
+/**
+ * Validates inbound webhook signature via Sendchamp.
+ */
+export function validateWebhookSignature(req) {
+  return validateSendchampSignature(req)
 }
 
-// Sends an SMS and never throws
+// Deprecated fallback for backward compatibility with legacy Twilio webhooks
+export function validateTwilioSignature() {
+  return false
+}
+
+/**
+ * Sends an SMS message using Sendchamp and never throws.
+ * Contract: returns { sent: boolean, reason?: string, providerMessageId?: string }
+ */
 export async function sendSMS(to, body) {
-  const from = process.env.TWILIO_FROM_NUMBER
-  const twilioClient = getClient()
-
-  if (!twilioClient || !from) {
-    if (!warnedMissingConfig) {
-      console.warn(
-        '[SMS] Not configured — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER to enable alerts.'
-      )
-      warnedMissingConfig = true
-    }
-    return { sent: false, reason: 'not_configured' }
-  }
-
   if (!to) return { sent: false, reason: 'no_recipient_number' }
-
-  try {
-    await twilioClient.messages.create({ to, from, body })
-    return { sent: true }
-  } catch (error) {
-    console.error(`[SMS] Failed to send to ${to}:`, error.message)
-    return { sent: false, reason: error.message }
+  const res = await sendSms({ to, message: body })
+  return {
+    sent: res.success,
+    reason: res.error,
+    providerMessageId: res.providerMessageId,
   }
 }
 
@@ -218,4 +189,3 @@ export async function dispatchSignalAlerts(db, signal, { previousStatus, isPrior
     console.error('[SMS Alert Dispatcher Error]:', err.message)
   }
 }
-

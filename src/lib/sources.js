@@ -30,6 +30,20 @@ export function institutionLabel(value) {
 }
 
 export const STATUS_META = {
+  unsafe: {
+    label: 'UNSAFE',
+    description: 'Verified dangerous activity reported',
+    dot: '#dc2626',
+    bg: '#fef2f2',
+    text: '#991b1b',
+  },
+  dangerous: {
+    label: 'UNSAFE',
+    description: 'Verified dangerous activity reported',
+    dot: '#dc2626',
+    bg: '#fef2f2',
+    text: '#991b1b',
+  },
   emerging: {
     label: 'New',
     description: 'Just started coming in',
