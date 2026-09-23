@@ -40,12 +40,17 @@ create table if not exists public.locations (
   submitted_by uuid references public.profiles(id) on delete set null,
   reviewed_by uuid references public.profiles(id) on delete set null,
   reviewed_at timestamptz,
-  created_at timestamptz not null default now(),
-  constraint locations_lga_name_unique unique (lga_id, lower(name))
+  created_at timestamptz not null default now()
 );
 
+-- A table-level UNIQUE constraint can't reference an expression like
+-- lower(name) — only a unique index can, so this is created separately
+-- rather than inline above.
+create unique index if not exists locations_lga_name_unique_idx
+  on public.locations (lga_id, lower(name));
+
 -- 4. Adapt reports table
-alter table public.reports 
+alter table public.reports
   add column if not exists location_id uuid references public.locations(id) on delete set null,
   add column if not exists state_id uuid references public.states(id) on delete set null,
   add column if not exists lga_id uuid references public.lgas(id) on delete set null;

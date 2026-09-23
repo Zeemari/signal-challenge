@@ -1,6 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
+
+// Node < 22 has no native WebSocket support, which supabase-js's Realtime
+// client requires at construction time even though this app never uses
+// Realtime features. Providing the `ws` package as the transport avoids the
+// "Node.js detected without native WebSocket support" error.
+const realtimeOptions = { transport: ws }
 
 function loadEnvFiles() {
   if (process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) return
@@ -41,6 +48,7 @@ export function createUserClient(accessToken) {
   return createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    realtime: realtimeOptions,
   })
 }
 
@@ -55,7 +63,10 @@ export function getServerClient() {
   }
   return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    realtime: realtimeOptions,
   })
 }
 
-export const supabase = getUrl() && getAnonKey() ? createClient(getUrl(), getAnonKey()) : null
+export const supabase = getUrl() && getAnonKey()
+  ? createClient(getUrl(), getAnonKey(), { realtime: realtimeOptions })
+  : null
