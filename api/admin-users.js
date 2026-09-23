@@ -17,13 +17,41 @@ export default async function handler(req, res) {
     const { user } = await requirePermission(req, PERMISSIONS.USERS_MANAGE)
     const db = getServerClient()
     if (req.method === 'GET') {
-      const [{ data: authUsers, error: authError }, { data: profiles, error: profileError }] = await Promise.all([
-        db.auth.admin.listUsers({ page: 1, perPage: 100 }),
-        db.from('profiles').select('id, display_name, role, is_active, phone, sms_alerts_enabled, institution_name, institution_type, created_at, updated_at').order('created_at', { ascending: false }),
-      ])
-      if (authError || profileError) throw authError || profileError
-      const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]))
-      return res.status(200).json({ users: (authUsers.users || []).map((account) => ({ ...profileMap.get(account.id), id: account.id, email: account.email })) })
+      let profiles = []
+      let authUsers = []
+
+      // 1. Fetch profiles table dynamically with select('*')
+      const profileRes = await db
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (profileRes.error) throw profileRes.error
+      profiles = profileRes.data || []
+
+      // 2. Safely attempt to fetch auth users for email mapping (requires service_role key)
+      try {
+        const authRes = await db.auth.admin.listUsers({ page: 1, perPage: 100 })
+        if (authRes.data?.users) {
+          authUsers = authRes.data.users
+        }
+      } catch (err) {
+        console.warn('[Admin Users] Could not list auth users:', err.message)
+      }
+
+      const authMap = new Map((authUsers || []).map((u) => [u.id, u]))
+
+      // Combine profiles with auth details
+      const userList = profiles.map((p) => {
+        const authAcc = authMap.get(p.id)
+        return {
+          ...p,
+          is_verified_correspondent: !!(p.is_verified_correspondent || p.is_verified_informant),
+          email: authAcc?.email || p.display_name || 'User (' + p.id.slice(0, 8) + ')',
+        }
+      })
+
+      return res.status(200).json({ users: userList })
     }
     if (req.method === 'POST') {
       const email = req.body?.email
@@ -51,8 +79,6 @@ export default async function handler(req, res) {
       if (createError) return res.status(400).json({ error: createError.message || 'Unable to create user' })
 
       const newId = created.user.id
-      // The on_auth_user_created trigger inserts a default 'citizen' profile row;
-      // only touch it when a different role was requested.
       if (role !== 'citizen') {
         const { error: roleError } = await db.from('profiles').update({ role }).eq('id', newId)
         if (roleError) throw roleError
@@ -61,8 +87,6 @@ export default async function handler(req, res) {
 
       return res.status(201).json({
         user: { id: newId, email: created.user.email, role, display_name: displayName || null, is_active: true },
-        // Only present when the admin didn't set a password themselves — shown
-        // once so it can be handed off manually.
         temp_password: generatedPassword,
       })
     }
@@ -74,9 +98,8 @@ export default async function handler(req, res) {
     const smsAlertsEnabled = req.body?.sms_alerts_enabled
     const institutionName = req.body?.institution_name
     const institutionType = req.body?.institution_type
-    // Self-editing role/is_active risks locking an admin out of their own
-    // account, so that's blocked — but the rest are safe to self-edit (an
-    // admin needs to be able to set their own alert number/affiliation).
+    const isVerifiedCorrespondent = req.body?.is_verified_correspondent
+
     const changesRoleOrActive = role !== undefined || isActive !== undefined
     if (!targetId) return res.status(400).json({ error: 'user_id is required' })
     if (changesRoleOrActive && targetId === user.id) {
@@ -84,6 +107,7 @@ export default async function handler(req, res) {
     }
     if (role !== undefined && !isValidRole(role)) return res.status(400).json({ error: 'Invalid role' })
     if (isActive !== undefined && typeof isActive !== 'boolean') return res.status(400).json({ error: 'is_active must be true or false' })
+    if (isVerifiedCorrespondent !== undefined && typeof isVerifiedCorrespondent !== 'boolean') return res.status(400).json({ error: 'is_verified_correspondent must be true or false' })
     if (phone !== undefined && phone !== null && typeof phone !== 'string') return res.status(400).json({ error: 'Invalid phone number' })
     if (smsAlertsEnabled !== undefined && typeof smsAlertsEnabled !== 'boolean') return res.status(400).json({ error: 'sms_alerts_enabled must be true or false' })
     if (institutionName !== undefined && institutionName !== null && typeof institutionName !== 'string') return res.status(400).json({ error: 'Invalid institution name' })
@@ -93,12 +117,23 @@ export default async function handler(req, res) {
     const patch = {}
     if (role !== undefined) patch.role = role
     if (isActive !== undefined) patch.is_active = isActive
+    if (isVerifiedCorrespondent !== undefined) patch.is_verified_correspondent = isVerifiedCorrespondent
     if (phone !== undefined) patch.phone = phone ? phone.trim().slice(0, 20) : null
     if (smsAlertsEnabled !== undefined) patch.sms_alerts_enabled = smsAlertsEnabled
     if (institutionName !== undefined) patch.institution_name = institutionName ? institutionName.trim().slice(0, 120) : null
     if (institutionType !== undefined) patch.institution_type = institutionType || null
     if (!Object.keys(patch).length) return res.status(400).json({ error: 'No user changes supplied' })
-    const { data: profile, error } = await db.from('profiles').update(patch).eq('id', targetId).select('id, role, is_active, phone, sms_alerts_enabled, institution_name, institution_type').maybeSingle()
+    let { data: profile, error } = await db.from('profiles').update(patch).eq('id', targetId).select('id, role, is_active, phone, sms_alerts_enabled, institution_name, institution_type, is_verified_correspondent').maybeSingle()
+    if (error && patch.is_verified_correspondent !== undefined) {
+      delete patch.is_verified_correspondent
+      if (Object.keys(patch).length > 0) {
+        const retry = await db.from('profiles').update(patch).eq('id', targetId).select('id, role, is_active, phone, sms_alerts_enabled, institution_name, institution_type').maybeSingle()
+        profile = retry.data
+        error = retry.error
+      } else {
+        return res.status(400).json({ error: 'Database table does not have is_verified_correspondent column yet. Please run migration 011_verified_correspondent.sql' })
+      }
+    }
     if (error) throw error
     if (!profile) return res.status(404).json({ error: 'User not found' })
     if (role !== undefined) await db.from('audit_logs').insert({ actor_id: user.id, action: 'role_changed', target_user_id: targetId, metadata: { role } })
@@ -106,7 +141,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ user: profile })
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) return sendAuthError(res, error)
-    console.error(error)
-    return res.status(500).json({ error: 'Unable to manage users' })
+    console.error('[Admin Users API Error]:', error)
+    return res.status(500).json({ error: error.message || error.details || 'Unable to manage users' })
   }
 }
