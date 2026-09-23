@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     await requirePermission(req, PERMISSIONS.REPORTS_READ_ALL)
     const db = getServerClient()
     const [{ data: reports, error }, { data: signals, error: signalError }] = await Promise.all([
-      db.from('reports').select('id, created_by, content, location, source_type, reported_at, created_at, ai_summary, ai_urgency, review_status, reviewed_by, reviewed_at, responder_notes, responder_name, perceived_situation, signal_id').order('created_at', { ascending: false }),
+      db.from('reports').select('id, created_by, content, location, source_type, reported_at, created_at, ai_summary, ai_urgency, review_status, reviewed_by, reviewed_at, responder_notes, responder_name, responder_institution_name, responder_institution_type, perceived_situation, signal_id').order('created_at', { ascending: false }),
       db.from('signals').select('id, title, location, status, review_status, summary, responder_notes, last_updated').order('last_updated', { ascending: false }),
     ])
     if (error || signalError) throw error || signalError

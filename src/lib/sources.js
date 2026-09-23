@@ -16,6 +16,19 @@ export function isFirsthand(value) {
   return value === 'direct_observation'
 }
 
+export const INSTITUTION_TYPES = [
+  { value: 'police_station', label: 'Police station' },
+  { value: 'news_outlet', label: 'Verified news outlet' },
+  { value: 'newspaper', label: 'Newspaper' },
+  { value: 'government_agency', label: 'Government agency' },
+  { value: 'ngo', label: 'NGO' },
+  { value: 'other', label: 'Other institution' },
+]
+
+export function institutionLabel(value) {
+  return INSTITUTION_TYPES.find((t) => t.value === value)?.label ?? null
+}
+
 export const STATUS_META = {
   emerging: {
     label: 'Emerging',

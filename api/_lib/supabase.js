@@ -10,7 +10,9 @@ import ws from 'ws'
 const realtimeOptions = { transport: ws }
 
 function loadEnvFiles() {
-  if (process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) return
+  // Don't short-circuit on just these two vars — SUPABASE_SERVICE_ROLE_KEY
+  // (and others) still need loading even when these happen to already be
+  // set in process.env from some other source.
   try {
     const cwd = process.cwd()
     for (const file of ['.env.local', '.env']) {

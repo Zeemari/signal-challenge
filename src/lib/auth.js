@@ -29,7 +29,7 @@ async function setSession(session) {
   authState.user = session?.user ?? null
   authState.profile = null
   if (session?.user) {
-    const { data, error } = await supabase.from('profiles').select('id, display_name, role, is_active').eq('id', session.user.id).maybeSingle()
+    const { data, error } = await supabase.from('profiles').select('id, display_name, role, is_active, institution_name, institution_type').eq('id', session.user.id).maybeSingle()
     if (error) console.error('Failed to load profile:', error)
     authState.profile = data ?? null
   }

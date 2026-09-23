@@ -1,6 +1,7 @@
 import { askForJSON } from './_lib/anthropic.js'
 import { getOptionalAuth, sendAuthError } from './_lib/auth.js'
 import { getServerClient } from './_lib/supabase.js'
+import { sendSMS } from './_lib/sms.js'
 
 const SOURCES = new Set(['direct_observation', 'trusted_community', 'authority', 'phone', 'whatsapp', 'secondhand', 'unknown'])
 const STATUSES = new Set(['emerging', 'corroborating', 'conflicting', 'unconfirmed'])
@@ -36,8 +37,12 @@ export default async function handler(req, res) {
     const db = getServerClient()
 
     let responderName = null
+    let institutionName = null
+    let institutionType = null
     if (profile?.role === 'responder') {
       responderName = profile.display_name || user?.user_metadata?.display_name || (user?.email ? user.email.split('@')[0] : 'Responder')
+      institutionName = profile.institution_name || null
+      institutionType = profile.institution_type || null
     }
 
     let finalLocationId = input.location_id
@@ -95,6 +100,12 @@ export default async function handler(req, res) {
     if (responderName) {
       insertPayload.responder_name = responderName
     }
+    if (institutionName) {
+      insertPayload.responder_institution_name = institutionName
+    }
+    if (institutionType) {
+      insertPayload.responder_institution_type = institutionType
+    }
     if (input.perceived_situation) {
       insertPayload.perceived_situation = input.perceived_situation
     }
@@ -151,6 +162,15 @@ export default async function handler(req, res) {
     if (linkError) console.error('Signal link error:', linkError)
 
     const updated = await classifyAndUpdate(db, signal, input.location)
+
+    const isDangerous = input.perceived_situation === 'dangerous' || ai.urgency === 'high'
+    if (isDangerous) {
+      // Best-effort — never let an SMS failure affect report submission.
+      alertResponders(db, { location: finalLocationText, summary: ai.summary, signalId: signal.id }).catch((e) =>
+        console.error('[Danger Alert] Failed to notify responders:', e)
+      )
+    }
+
     return res.status(200).json({ report: { ...report, signal_id: signal.id }, signal: updated })
   } catch (error) {
     if (error?.status === 400) return res.status(400).json({ error: error.message })
@@ -187,6 +207,24 @@ async function findOrCreateSignal(db, input, ai) {
   return result.data
 }
 
+async function alertResponders(db, { location, summary, signalId }) {
+  const { data: staff, error } = await db
+    .from('profiles')
+    .select('phone')
+    .in('role', ['responder', 'admin'])
+    .eq('is_active', true)
+    .eq('sms_alerts_enabled', true)
+    .not('phone', 'is', null)
+  if (error) throw error
+  if (!staff?.length) return
+
+  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.PUBLIC_APP_URL
+  const link = baseUrl ? ` ${baseUrl}/signal/${signalId}` : ''
+  const body = `SIGNAL ALERT: A dangerous situation was reported at ${location}. ${summary}${link}`.slice(0, 480)
+
+  await Promise.all(staff.map((s) => sendSMS(s.phone, body)))
+}
+
 async function classifyAndUpdate(db, signal, location) {
   const result = await db.from('reports').select('source_type, reported_at, content')
     .eq('signal_id', signal.id).order('reported_at', { ascending: false })
@@ -194,7 +232,7 @@ async function classifyAndUpdate(db, signal, location) {
   let classification = null
   try {
     classification = await askForJSON({
-      system: 'Classify reports as emerging, corroborating, conflicting, or unconfirmed. Never call a location safe or dangerous. Return status, summary, and why_explanation.',
+      system: 'Classify reports as emerging, corroborating, conflicting, or unconfirmed. Never call a location safe or dangerous, and never state or imply that a report or signal is confirmed, verified, or certain — these are community reports only. Write "summary" as a DETAILED situation report, 2-4 sentences: include specific details actually mentioned in the reports (what was seen/heard, numbers/vehicles/people involved if stated, timing), the report count, and the source mix (e.g. "3 direct observations and 1 second-hand report"). Attribute every claim to the reports ("reports describe...", "according to X observers...") rather than stating it as fact — detailed AND hedged are not in tension: be specific about what was reported while being clear it is unverified. Return status, summary, and why_explanation.',
       prompt: `Location: ${location}\n${result.data.map((r) => `- ${r.source_type} ${r.reported_at}: ${r.content}`).join('\n')}`,
       maxTokens: 768,
     })

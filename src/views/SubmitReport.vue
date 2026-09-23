@@ -84,7 +84,10 @@ async function submit() {
       <svg class="h-4 w-4 shrink-0 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
       </svg>
-      <span>Submitting as official <strong>Responder ({{ responderName }})</strong>. Your name will be attached to this report.</span>
+      <span>
+        Submitting as official <strong>Responder ({{ responderName }})</strong><template v-if="authState.profile?.institution_name"> — {{ authState.profile.institution_name }}</template>.
+        Your name{{ authState.profile?.institution_name ? ' and institution' : '' }} will be attached to this report.
+      </span>
     </div>
 
     <form v-if="!result" @submit.prevent="submit" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

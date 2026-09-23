@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     const db = getServerClient()
     const [{ data: signal, error }, { data: reports, error: reportsError }] = await Promise.all([
       db.from('signals').select('id, title, location, status, review_status, summary, why_explanation, last_updated, created_at').eq('id', id).maybeSingle(),
-      db.from('reports').select('id, signal_id, ai_summary, source_type, reported_at, ai_urgency, responder_name, content, perceived_situation').eq('signal_id', id).order('reported_at', { ascending: false }),
+      db.from('reports').select('id, signal_id, ai_summary, source_type, reported_at, ai_urgency, responder_name, responder_institution_name, responder_institution_type, content, perceived_situation').eq('signal_id', id).order('reported_at', { ascending: false }),
     ])
     if (error || reportsError) throw error || reportsError
     if (!signal) return res.status(404).json({ error: 'Signal not found' })

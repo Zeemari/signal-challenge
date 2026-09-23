@@ -25,8 +25,12 @@
 }
 
 body {
-  background-color: #f7f8fa;
-  background-image: radial-gradient(circle at top, rgba(47, 111, 94, 0.05), transparent 55%);
+  background-color: #fdf6ee;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(249, 199, 130, 0.55), transparent 45%),
+    radial-gradient(circle at 100% 10%, rgba(240, 160, 130, 0.4), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(47, 111, 94, 0.12), transparent 55%);
+  background-attachment: fixed;
   color: #12181a;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
