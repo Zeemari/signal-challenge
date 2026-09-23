@@ -24,12 +24,23 @@ onMounted(async () => {
     if (signalError) throw signalError
     signal.value = signalRow
 
-    const { data: reportRows, error: reportsError } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('signal_id', route.params.id)
-      .order('reported_at', { ascending: false })
-    if (reportsError) throw reportsError
+    let reportRows = []
+    try {
+      const publicResponse = await fetch(`/api/public-signal?id=${encodeURIComponent(route.params.id)}`)
+      const contentType = publicResponse.headers.get('content-type') || ''
+      if (publicResponse.ok && contentType.includes('application/json')) {
+        const publicData = await publicResponse.json()
+        reportRows = publicData.reports || []
+      } else {
+        const { data: rData } = await supabase.from('reports').select('*').eq('signal_id', route.params.id)
+        reportRows = rData || []
+      }
+    } catch {
+      const { data: rData } = await supabase.from('reports').select('*').eq('signal_id', route.params.id)
+      reportRows = rData || []
+    }
+
+    for (const report of reportRows) report.content = report.content || report.ai_summary || 'Community report received.'
     reports.value = reportRows ?? []
   } catch (e) {
     error.value = e.message

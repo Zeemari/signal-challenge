@@ -48,23 +48,28 @@ AI is explicitly never used to judge whether a location is safe, invent report d
 
 ## Setup
 
-1. **Create a Supabase project** at supabase.com. In the SQL editor, run `supabase/schema.sql`, then `supabase/seed.sql` to load demo data.
+1. **Create a Supabase project** at supabase.com. In the SQL editor, run `supabase/schema.sql`, then `supabase/002_rbac.sql`, then `supabase/seed.sql` to load demo data. For an existing project, run only `supabase/002_rbac.sql`.
 2. **Copy env vars**: `cp .env.example .env.local` and fill in:
    - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — from Supabase project settings → API
    - `ANTHROPIC_API_KEY` — from console.anthropic.com (server-only, never exposed to the browser)
+   - `SUPABASE_SERVICE_ROLE_KEY` — from Supabase project settings (server-only; never use a `VITE_` prefix)
 3. **Install & run**:
    ```
    npm install
    npm run dev          # frontend only, http://localhost:5173
    ```
    To test the `/api` serverless functions locally, use the Vercel CLI instead: `vercel dev`.
+
+   To bootstrap the first administrator, create an account normally, copy its user UUID from Supabase Authentication, and run this manually in the SQL editor:
+   `update public.profiles set role = 'admin' where id = '<AUTH_USER_UUID>';`
+   Do not commit the UUID as application seed data or commit any credentials.
 4. **Deploy**: push to GitHub, import into Vercel, add the same three env vars in the Vercel project settings.
 
 ## Limitations
 
 - Clustering is a location+time heuristic, not semantic/embedding-based — two differently-worded reports about the same spot within 30 minutes will cluster; a report using unusual phrasing about a known location might not.
 - Ask SIGNAL matches questions to locations by keyword substring, not full NLU — it only knows about locations that already have a signal.
-- No auth — this is a public read/write prototype by design, not a production posture.
+- New users are citizens by default. Promote a user to responder/admin from the admin screen after creating the account. Never commit credentials or service keys.
 - No real-time push; the dashboard reflects state as of page load.
 
 ## What's next with more time

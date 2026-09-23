@@ -12,5 +12,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // try/catch in each view instead of crashing the whole app on load.
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
+  supabaseAnonKey || 'placeholder-anon-key',
+  { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
 )
