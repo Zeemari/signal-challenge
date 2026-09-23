@@ -21,8 +21,49 @@ export function normalizePhoneNumber(rawPhone) {
   return null
 }
 
-export function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+// Twilio Verify sends and checks the OTP itself using its own pre-approved
+// templates, which trial accounts are allowed to use (unlike a raw custom-text
+// SMS via messages.create, which trial accounts reject). This only covers the
+// sign-up confirmation code — dispatchSignalAlerts below still needs a paid
+// account since it sends free-form alert text.
+export async function sendVerificationCode(to) {
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID
+  const twilioClient = getClient()
+
+  if (!twilioClient || !serviceSid) {
+    if (!warnedMissingConfig) {
+      console.warn('[SMS Verify] Not configured — set TWILIO_VERIFY_SERVICE_SID to enable OTP delivery.')
+      warnedMissingConfig = true
+    }
+    return { sent: false, reason: 'not_configured' }
+  }
+
+  try {
+    const verification = await twilioClient.verify.v2.services(serviceSid).verifications.create({ to, channel: 'sms' })
+    return { sent: true, status: verification.status }
+  } catch (error) {
+    console.error(`[SMS Verify] Failed to send to ${to}:`, error.message)
+    return { sent: false, reason: error.message }
+  }
+}
+
+export async function checkVerificationCode(to, code) {
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID
+  const twilioClient = getClient()
+
+  if (!twilioClient || !serviceSid) {
+    return { approved: false, reason: 'not_configured' }
+  }
+
+  try {
+    const check = await twilioClient.verify.v2.services(serviceSid).verificationChecks.create({ to, code })
+    return { approved: check.status === 'approved', status: check.status }
+  } catch (error) {
+    // Twilio throws (rather than returning a status) for things like an
+    // already-used or unknown code — treat that as "not approved" instead of
+    // a 500, since it's an expected user-facing outcome, not a server error.
+    return { approved: false, reason: error.message }
+  }
 }
 
 /**

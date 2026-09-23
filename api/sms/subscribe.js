@@ -1,5 +1,5 @@
 import { getServerClient } from '../_lib/supabase.js'
-import { normalizePhoneNumber, generateOtp, sendSMS } from '../_lib/sms.js'
+import { normalizePhoneNumber, sendVerificationCode } from '../_lib/sms.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -98,8 +98,6 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: 'Too many verification attempts for this phone number. Please try again in an hour.' })
     }
 
-    const code = generateOtp()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes expiry
     const now = new Date().toISOString()
 
     // Check if an existing subscription exists for phone + target
@@ -124,8 +122,6 @@ export default async function handler(req, res) {
         .from('sms_subscriptions')
         .update({
           status: 'pending',
-          confirmation_code: code,
-          confirmation_expires_at: expiresAt,
           last_attempt_at: now,
           attempts_count: 0,
           updated_at: now,
@@ -144,8 +140,6 @@ export default async function handler(req, res) {
           location_id: locationId,
           lga_id: lgaId,
           status: 'pending',
-          confirmation_code: code,
-          confirmation_expires_at: expiresAt,
           last_attempt_at: now,
           attempts_count: 0,
         })
@@ -156,17 +150,18 @@ export default async function handler(req, res) {
       subId = inserted.id
     }
 
-    // Send confirmation OTP code via Twilio
-    const smsRes = await sendSMS(
-      phone,
-      `SIGNAL: Your confirmation code is ${code}. Valid for 10 minutes.`
-    )
+    // Twilio Verify generates, sends, and later checks the code itself —
+    // we don't generate or store our own confirmation_code anymore.
+    const verifyRes = await sendVerificationCode(phone)
 
     return res.status(200).json({
       subscription_id: subId,
       phone_number: phone,
-      message: 'Verification code sent via SMS',
-      sent: smsRes.sent,
+      message: verifyRes.sent
+        ? 'Verification code sent via SMS'
+        : 'Could not send the verification code by SMS. Please try again shortly.',
+      sent: verifyRes.sent,
+      ...(verifyRes.sent ? {} : { reason: verifyRes.reason }),
     })
   } catch (error) {
     console.error('[SMS Subscribe Error]:', error)

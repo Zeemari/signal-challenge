@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { SOURCE_TYPES } from '../lib/sources.js'
 import { apiFetch } from '../lib/api.js'
 import { authState } from '../lib/auth.js'
 import CascadingLocationPicker from '../components/CascadingLocationPicker.vue'
@@ -130,28 +129,6 @@ async function submit() {
       <div>
         <label class="mb-1.5 block text-sm font-semibold text-slate-800">Location</label>
         <CascadingLocationPicker v-model="locationState" />
-      </div>
-
-      <!-- Source type -->
-      <div>
-        <label class="mb-1.5 block text-sm font-semibold text-slate-800">Source type</label>
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="s in SOURCE_TYPES"
-            :key="s.value"
-            type="button"
-            @click="sourceType = s.value"
-            class="rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
-            :class="
-              sourceType === s.value
-                ? 'border-transparent text-white'
-                : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
-            "
-            :style="sourceType === s.value ? { backgroundColor: 'var(--color-brand-500)' } : {}"
-          >
-            {{ s.label }}
-          </button>
-        </div>
       </div>
 
       <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>

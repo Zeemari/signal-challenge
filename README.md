@@ -1,84 +1,191 @@
 # SIGNAL
 
-**Know what's known. See what's fresh.**
+SIGNAL turns scattered community reports into a clear, time-stamped picture of what is being reported in a place, where it came from, and how much supports it.
 
-An AI layer for turning noisy community reports into transparent, time-sensitive signals — built for the K-Fest "Build Something That Helps" challenge.
+> Signal doesn't tell you what to believe. It shows you what's known, where it came from, and how fresh it is.
 
-## The problem
+Built for the K-Fest Tech Screening Challenge.
 
-When something might be happening on a road home, people don't lack information — they're flooded with it. A cousin's WhatsApp forward, a neighbour's secondhand story, a vigilante group's radio call. The problem isn't detecting danger; it's that nobody can tell what's recent, what's firsthand, what's corroborated, and what's still just a rumour.
+## The Problem
 
-## What SIGNAL does
+At 6:40 PM, Amara is closing her shop. Her cousin heard something on WhatsApp. A neighbour saw movement on the road. A local vigilante has information but no quick way to reach everyone.
 
-SIGNAL collects short community reports, uses AI to structure them (what happened, where, source type, urgency), and groups reports that may describe the same situation into a **Signal** — a transparent picture of what's known, not a verdict.
+Amara doesn't lack information. She has too much of it, and none of it comes with context. Is it firsthand or passed along? Did it happen ten minutes ago or yesterday? Does anyone else say the same thing, or does someone say the opposite? By the time reliable information reaches her, it may be too late, or a rumour may already have caused panic.
 
-It never says a location is "safe" or "dangerous." It says things like:
+## What We Chose to Build
 
-> 4 reports have been received around Northern Road in the last 12 minutes. 2 are direct observations and 2 are second-hand. The reports appear to describe the same developing situation, but the nature of the activity has not been independently confirmed.
+We didn't try to solve everything. We didn't build a danger detector, a safety score, or another broadcast channel.
 
-## Key features
+We focused on one gap: the space between "someone reported something" and "what can I actually understand and trust from that?"
 
-- **Signal Fusion** — groups reports by location + time proximity into a single evolving picture, instead of a flat list.
-- **Freshness** — every report and signal shows how old the information is (🟢 recent / 🟡 aging / ⚪ stale), never implying old = false.
-- **Source transparency** — every report is tagged direct observation, secondhand, authority, WhatsApp, etc.
-- **"Why this signal?"** — every signal shows the evidence checklist behind it (report counts, source mix, time window, what's still unconfirmed).
-- **Conflicting reports handling** — when reports disagree, SIGNAL says so explicitly instead of picking a side.
-- **Ask SIGNAL** — a constrained Q&A that answers only from stored reports, in a fixed structure (current picture / what supports this / what's unknown / last updated), so it can't drift into giving a safety verdict.
+SIGNAL collects short reports, structures them with AI, groups the ones that seem to describe the same situation, and shows the result with its uncertainty left in. It never says a road is safe or dangerous.
 
-## AI architecture
+## How We Approached the Challenge
 
-All AI calls run server-side (Vercel functions in `/api`) so the API key never reaches the browser.
+Our first realisation was that "people need alerts" isn't really the problem. People already get information from WhatsApp, neighbours and local contacts. The problem is that the information is fragmented, hard to check, sometimes contradictory, and often stale by the time it lands. Another alert system would just add to the noise.
 
-| Step | Where | What it does |
+So we built around four ideas:
+
+1. **Speed.** Information that arrives late is not much use, so people can subscribe to SMS alerts instead of refreshing a page.
+2. **Context.** Every report keeps its source type and its age.
+3. **Verification.** Reports can be reviewed by responders and admins, and reports from verified correspondents or named institutions are marked as such.
+4. **Transparency.** Uncertainty and conflicting reports stay visible instead of being smoothed over.
+
+AI is good at one thing here: turning messy human text into structured data. We deliberately stopped it there. It organises and summarises. It does not decide what's true.
+
+## How SIGNAL Works
+
+```
+Someone submits a report (what, where, when, source type)
+        ↓
+AI extracts a summary, event type, entities and urgency
+        ↓
+The report is attached to a signal (same location, within a 30-minute window)
+        ↓
+AI reviews all reports in that signal and sets a status:
+emerging / corroborating / conflicting / unconfirmed
+        ↓
+People see the picture: report counts, source mix, freshness, what's unknown
+        ↓
+Subscribers can get an SMS alert when a signal is corroborated
+```
+
+## Key Features
+
+- **Community reports.** Citizens describe what they saw, pick a location from a Nigeria state / LGA / landmark picker (or suggest a new one), and say how they'd describe the situation. Reports are tagged by source type (direct observation, second-hand, community source, authority, and so on), because not every report deserves the same weight.
+- **Signals.** Related reports are grouped into one evolving signal rather than a flat list.
+- **Freshness.** Every signal and report shows how old it is. Old doesn't mean false, and we don't imply it does.
+- **"Why this signal?"** Each signal shows the evidence behind it: how many reports, what kinds of source, over what time window, and what is still unconfirmed.
+- **Conflicting reports.** If reports disagree, SIGNAL says so plainly and doesn't pick one.
+- **Ask SIGNAL.** A chat where you can ask things like "What do we know about Northern Road?" The answer comes only from stored reports, in a fixed shape: current picture, what supports it, what is unknown, last updated.
+- **SMS alerts.** Users can subscribe to a location or LGA and confirm their number with a code. Alerts go out when a signal is corroborated, or when a verified correspondent reports something (marked as not yet independently confirmed).
+- **Responder actions.** Responders can update a signal's status and add notes, and get notified about dangerous reports.
+
+## How AI Fits Into SIGNAL
+
+We use Anthropic's Claude (`claude-haiku-4-5`), called only from server-side functions so the API key never reaches the browser.
+
+| Step | File | What the AI does |
 |---|---|---|
-| Extraction | `api/submit-report.js` | Claude turns a raw report into structured JSON (summary, event type, entities, urgency) — instructed to never invent details not in the text |
-| Clustering | `api/submit-report.js` | Heuristic: same normalized location + within a 30-minute window → same signal. No embeddings/vector search — deliberately simple for a 48-hour build |
-| Classification | `api/submit-report.js` | Claude reviews all reports in a signal and returns a status (`emerging` / `corroborating` / `conflicting` / `unconfirmed`) + hedged summary + evidence bullets |
-| Ask SIGNAL | `api/ask-signal.js` | Matches the question to a known signal by location keyword, then Claude answers strictly from that signal's reports in a fixed 4-part template |
+| Extraction | `api/submit-report.js` | Turns a raw report into structured JSON: summary, event type, entities, urgency. Told not to invent details that aren't in the text. |
+| Classification | `api/submit-report.js` | Reviews the reports in a signal and returns a status, a hedged summary and evidence points. |
+| Ask SIGNAL | `api/ask-signal.js` | Answers a question strictly from the reports stored for the matching location. |
 
-AI is explicitly never used to judge whether a location is safe, invent report details, or resolve conflicting reports into one "truth."
+Grouping reports into signals is not AI. It's a simple heuristic (same normalised location, within 30 minutes). We kept it simple on purpose.
 
-## Tech stack
+**What the AI does not do:**
 
-- Vue 3 + Vite
-- Tailwind CSS v4
-- Supabase (Postgres, via `@supabase/supabase-js`)
-- Vercel (static hosting + serverless functions in `/api`)
-- Anthropic Claude (`claude-haiku-4-5`) for extraction, classification, and Q&A
+- It doesn't invent reports or details.
+- It doesn't decide that an unverified report is true.
+- It doesn't declare an area safe or dangerous.
+- It doesn't replace trusted authorities or human judgment.
 
-## Setup
+If the AI call fails, the app falls back to the plain report text and a generic "unconfirmed" status instead of breaking.
 
-1. **Create a Supabase project** at supabase.com. In the SQL editor, run `supabase/schema.sql`, then `supabase/002_rbac.sql`, then `supabase/seed.sql` to load demo data. For an existing project, run only `supabase/002_rbac.sql`.
-2. **Copy env vars**: `cp .env.example .env.local` and fill in:
-   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — from Supabase project settings → API
-   - `ANTHROPIC_API_KEY` — from console.anthropic.com (server-only, never exposed to the browser)
-   - `SUPABASE_SERVICE_ROLE_KEY` — from Supabase project settings (server-only; never use a `VITE_` prefix)
-3. **Install & run**:
+## Trust, Verification & Uncertainty
+
+Being straight about this: SIGNAL does **not** independently confirm that events happened. Verification here means giving people the material to judge for themselves:
+
+- **Source types** on every report.
+- **Human review.** Responders and admins can review signals and set their status.
+- **Trusted reporters.** Users can be flagged as verified correspondents, and responders can be attached to a named institution (police station, news outlet, NGO and so on). Their reports carry that attribution.
+- **Visible conflict.** Disagreeing reports are shown as disagreeing.
+- **Visible gaps.** Every summary lists what is still unknown.
+
+We did not build automatic cross-checking against external news sources. That is a real limitation and it's on our list below.
+
+## Admin Dashboard
+
+Admins can see and manage who is using the system:
+
+- Add users (with a password) and change roles between citizen, responder and admin.
+- Activate or deactivate accounts, and set responder phone numbers and institutions.
+- Manage the location hierarchy directly, and approve or reject locations suggested by the community.
+
+Responders have their own workspace for reviewing pending locations and setting signal status. The point is to keep a person in the loop instead of leaving everything to the AI.
+
+## Tech Stack
+
+- **Frontend:** Vue 3, Vite, Tailwind CSS v4
+- **Backend:** Serverless functions in `/api` (Vercel)
+- **Database and auth:** Supabase (Postgres, Supabase Auth, row-level security)
+- **AI:** Anthropic Claude (`claude-haiku-4-5`)
+- **SMS:** Twilio (Verify for confirmation codes, Messages for alerts)
+- **Deployment:** Vercel
+
+## Getting Started
+
+1. **Create a Supabase project.** In the SQL editor, run `supabase/schema.sql`, then each numbered migration in order (`002` through `011`), then optionally `supabase/seed.sql` for demo data.
+2. **Create `.env`** from the example and fill it in (see below):
+   ```
+   cp .env.example .env
+   ```
+3. **Install and run:**
    ```
    npm install
-   npm run dev          # frontend only, http://localhost:5173
+   npm run dev
    ```
-   To test the `/api` serverless functions locally, use the Vercel CLI instead: `vercel dev`.
+   `npm run dev` only serves the frontend. To run the `/api` functions locally, use the Vercel CLI: `vercel dev`.
+4. **Make your first admin.** Sign up normally, copy your user ID from Supabase Authentication, and run this in the SQL editor:
+   ```sql
+   update public.profiles set role = 'admin' where id = '<YOUR_USER_UUID>';
+   ```
+5. **Deploy.** Push to GitHub, import the repo into Vercel, and add the same environment variables in the Vercel project settings. Your local `.env` is not used in production.
 
-   To bootstrap the first administrator, create an account normally, copy its user UUID from Supabase Authentication, and run this manually in the SQL editor:
-   `update public.profiles set role = 'admin' where id = '<AUTH_USER_UUID>';`
-   Do not commit the UUID as application seed data or commit any credentials.
-4. **Deploy**: push to GitHub, import into Vercel, add the same three env vars in the Vercel project settings.
+## Environment Variables
 
-## Limitations
+| Variable | Used for |
+|---|---|
+| `VITE_SUPABASE_URL` | Supabase project URL (browser) |
+| `VITE_SUPABASE_ANON_KEY` | Supabase public key (browser) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key. Never prefix with `VITE_`. |
+| `ANTHROPIC_API_KEY` | Server-only key for Claude |
+| `TWILIO_ACCOUNT_SID` | Twilio account |
+| `TWILIO_AUTH_TOKEN` | Twilio auth |
+| `TWILIO_FROM_NUMBER` | Number alerts are sent from, in `+234...` format with no spaces |
+| `TWILIO_VERIFY_SERVICE_SID` | Twilio Verify service (starts with `VA`) for confirmation codes |
 
-- Clustering is a location+time heuristic, not semantic/embedding-based — two differently-worded reports about the same spot within 30 minutes will cluster; a report using unusual phrasing about a known location might not.
-- Ask SIGNAL matches questions to locations by keyword substring, not full NLU — it only knows about locations that already have a signal.
-- New users are citizens by default. Promote a user to responder/admin from the admin screen after creating the account. Never commit credentials or service keys.
-- No real-time push; the dashboard reflects state as of page load.
+Don't commit `.env` or paste keys into issues or chats.
 
-## What's next with more time
+## Project Structure
 
-- Real-time updates via Supabase Realtime subscriptions
-- Embedding-based semantic similarity as a second clustering pass, for reports that describe the same event without sharing exact location text
-- A lightweight trust signal for repeat/reliable reporters, without building full accounts
-- Push notifications when a new report lands near a location the user cares about
+```
+api/                 Serverless functions
+  _lib/              Shared helpers (Claude, auth, Supabase, SMS)
+  sms/               SMS subscribe / confirm / unsubscribe
+  submit-report.js   Report intake, AI extraction, signal grouping
+  ask-signal.js      Ask SIGNAL
+  update-signal.js   Responder status updates
+  admin-*.js         User and location administration
+src/
+  views/             Pages (dashboard, report form, signal detail, admin, ...)
+  components/        UI pieces (signal cards, chat, SMS modal, ...)
+  lib/               Client helpers (auth, API, freshness, sources)
+supabase/            Schema and numbered migrations
+```
 
-## Disclaimer
+## Future Improvements
 
-SIGNAL organizes community reports and does not independently verify every report. Use trusted local authorities and your own judgment for urgent safety decisions.
+- Cross-checking reports against news and other verified sources, which is the biggest gap today.
+- Stronger source credibility, so a reporter's track record counts for something.
+- Better geographic grouping than matching on location text.
+- More reliable real-time updates (the dashboard currently reflects the state at page load).
+- Image and audio reports.
+- Integration with verified local authorities.
+- Testing with real communities, which we haven't been able to do.
+- Better support for low connectivity and offline use.
+
+## Safety Note
+
+SIGNAL organises and gives context to community reports. It does not independently verify every report, and what it shows may be incomplete, outdated or wrong. For urgent safety decisions, rely on trusted local authorities and your own judgment.
+
+Two practical notes on the current build: SMS alerts need a paid Twilio account to send free-form text (trial accounts only allow a small set of preset messages), and grouping is a simple location-and-time rule, so differently worded reports about the same place can end up in separate signals.
+
+## Team
+
+- Zainab Musa
+- Victory Anyanwu
+
+---
+
+Signal doesn't tell you what to believe. It shows you what's known, where it came from, and how fresh it is.

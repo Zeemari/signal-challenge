@@ -68,6 +68,7 @@ async function handleSubscribe() {
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Failed to send confirmation code')
+    if (!data.sent) throw new Error(data.message || 'Could not send the verification code by SMS. Please try again shortly.')
 
     subscriptionId.value = data.subscription_id
     if (data.phone_number) phone.value = data.phone_number
