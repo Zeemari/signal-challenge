@@ -1,5 +1,6 @@
 import { requirePermission, PERMISSIONS, sendAuthError } from './_lib/auth.js'
 import { getServerClient } from './_lib/supabase.js'
+import { dispatchSignalAlerts } from './_lib/sms.js'
 
 const STATUSES = new Set(['emerging', 'corroborating', 'conflicting', 'unconfirmed'])
 const REVIEWS = new Set(['unverified', 'verified', 'rejected'])
@@ -16,9 +17,13 @@ export default async function handler(req, res) {
     const patch = { status, last_updated: new Date().toISOString() }
     if (reviewStatus) Object.assign(patch, { review_status: reviewStatus, reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     if (typeof req.body?.notes === 'string') patch.responder_notes = req.body.notes.trim().slice(0, 2000)
-    const { data: signal, error } = await db.from('signals').update(patch).eq('id', id).select('id, status, review_status, responder_notes, last_updated').maybeSingle()
+    const { data: signal, error } = await db.from('signals').update(patch).eq('id', id).select('id, location, summary, status, review_status, responder_notes, last_updated').maybeSingle()
     if (error) throw error
     if (!signal) return res.status(404).json({ error: 'Signal not found' })
+
+    // Trigger outbound SMS alerts to subscribed citizens if signal status is updated to elevated/corroborated
+    dispatchSignalAlerts(db, signal).catch((e) => console.error('[Citizen SMS Alert Error]:', e))
+
     await db.from('audit_logs').insert({ actor_id: user.id, action: 'signal_status_changed', signal_id: id, metadata: { status, review_status: reviewStatus || null } })
     return res.status(200).json({ signal })
   } catch (error) {

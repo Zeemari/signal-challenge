@@ -50,6 +50,7 @@ async function update(user, field, value) {
 
 function updateRole(user, value) { return update(user, 'role', value) }
 function toggleActive(user) { return update(user, 'is_active', !user.is_active) }
+function toggleVerifiedCorrespondent(user) { return update(user, 'is_verified_correspondent', !user.is_verified_correspondent) }
 function toggleSms(user) { return update(user, 'sms_alerts_enabled', !user.sms_alerts_enabled) }
 function updatePhone(user, value) { return update(user, 'phone', value) }
 function updateInstitutionName(user, value) { return update(user, 'institution_name', value) }
@@ -166,6 +167,14 @@ onMounted(load)
             class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
             {{ user.is_active ? 'Deactivate' : 'Activate' }}
+          </button>
+          <button
+            :disabled="busy === user.id"
+            @click="toggleVerifiedCorrespondent(user)"
+            class="shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+            :class="user.is_verified_correspondent ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-500'"
+          >
+            Verified Correspondent {{ user.is_verified_correspondent ? '✓' : 'off' }}
           </button>
         </div>
         <p class="mt-1.5 text-[11px] text-slate-400">

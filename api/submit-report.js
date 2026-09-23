@@ -1,7 +1,7 @@
 import { askForJSON } from './_lib/anthropic.js'
 import { getOptionalAuth, sendAuthError } from './_lib/auth.js'
 import { getServerClient } from './_lib/supabase.js'
-import { sendSMS } from './_lib/sms.js'
+import { sendSMS, dispatchSignalAlerts } from './_lib/sms.js'
 
 const SOURCES = new Set(['direct_observation', 'trusted_community', 'authority', 'phone', 'whatsapp', 'secondhand', 'unknown'])
 const STATUSES = new Set(['emerging', 'corroborating', 'conflicting', 'unconfirmed'])
@@ -163,6 +163,18 @@ export default async function handler(req, res) {
 
     const updated = await classifyAndUpdate(db, signal, input.location)
 
+    const isVerifiedCorrespondent = !!(profile?.is_verified_correspondent || profile?.is_verified_informant)
+
+    // Trigger outbound SMS alerts (fast-track priority for verified correspondents, or normal corroboration flow)
+    dispatchSignalAlerts(db, updated, {
+      previousStatus: signal.status,
+      isPriority: isVerifiedCorrespondent,
+      trustIndicator: isVerifiedCorrespondent ? 'single_trusted_contact' : (updated.source_trust_indicator || 'multi_report_corroborated'),
+      category: input.category || ai.event_type || 'safety update',
+    }).catch((e) =>
+      console.error('[Citizen SMS Alert Error]:', e)
+    )
+
     const isDangerous = input.perceived_situation === 'dangerous' || ai.urgency === 'high'
     if (isDangerous) {
       // Best-effort — never let an SMS failure affect report submission.
@@ -183,11 +195,11 @@ export default async function handler(req, res) {
 async function extract(input) {
   try {
     return await askForJSON({
-      system: 'Extract neutral JSON with summary, event_type, entities, and urgency from this report. Use only stated details.',
+      system: 'Extract neutral JSON with summary, event_type, entities, urgency, and trust_indicator from this report. Use only stated details.',
       prompt: `Report: ${input.content}`, maxTokens: 512,
     })
   } catch {
-    return { summary: input.content, event_type: input.category || 'other', entities: [], urgency: 'medium' }
+    return { summary: input.content, event_type: input.category || 'other', entities: [], urgency: 'medium', trust_indicator: 'single_trusted_contact' }
   }
 }
 
@@ -232,7 +244,7 @@ async function classifyAndUpdate(db, signal, location) {
   let classification = null
   try {
     classification = await askForJSON({
-      system: 'Classify reports as emerging, corroborating, conflicting, or unconfirmed. Never call a location safe or dangerous, and never state or imply that a report or signal is confirmed, verified, or certain — these are community reports only. Write "summary" as a DETAILED situation report, 2-4 sentences: include specific details actually mentioned in the reports (what was seen/heard, numbers/vehicles/people involved if stated, timing), the report count, and the source mix (e.g. "3 direct observations and 1 second-hand report"). Attribute every claim to the reports ("reports describe...", "according to X observers...") rather than stating it as fact — detailed AND hedged are not in tension: be specific about what was reported while being clear it is unverified. Return status, summary, and why_explanation.',
+      system: 'Classify reports as emerging, corroborating, conflicting, or unconfirmed. Never call a location safe or dangerous, and never state or imply that a report or signal is confirmed, verified, or certain — these are community reports only. Write "summary" as a DETAILED situation report, 2-4 sentences: include specific details actually mentioned in the reports (what was seen/heard, numbers/vehicles/people involved if stated, timing), the report count, and the source mix. Include source_trust_indicator ("single_trusted_contact" vs "multi_report_corroborated"). Return status, summary, source_trust_indicator, and why_explanation.',
       prompt: `Location: ${location}\n${result.data.map((r) => `- ${r.source_type} ${r.reported_at}: ${r.content}`).join('\n')}`,
       maxTokens: 768,
     })
@@ -244,5 +256,5 @@ async function classifyAndUpdate(db, signal, location) {
     last_updated: new Date().toISOString(),
   }).eq('id', signal.id).select().single()
   if (update.error) throw update.error
-  return update.data
+  return { ...update.data, source_trust_indicator: classification?.source_trust_indicator || (result.data.length > 1 ? 'multi_report_corroborated' : 'single_trusted_contact') }
 }
