@@ -171,67 +171,78 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
-    <div class="flex items-center justify-between">
-      <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Location Hierarchy (Nigeria)</label>
-      <span v-if="loadingStates || loadingLgas || loadingLocations" class="text-xs text-brand-600 animate-pulse">Loading data…</span>
+  <div class="space-y-3">
+    <div v-if="loadingStates || loadingLgas || loadingLocations" class="flex items-center gap-1.5 text-xs font-medium" style="color: var(--color-brand-600)">
+      <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="2" opacity="0.25" />
+        <path d="M17.5 10a7.5 7.5 0 0 0-7.5-7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      Loading location data…
     </div>
 
-    <!-- 1. State Selector -->
+    <!-- State Selector -->
     <div>
-      <label class="mb-1 block text-xs font-semibold text-slate-600">1. State</label>
+      <label class="mb-1.5 block text-sm font-semibold text-slate-800">State</label>
       <select
         v-model="selectedStateId"
         :disabled="loadingStates"
-        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
+        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-transparent focus:outline-none focus:ring-2 disabled:bg-slate-50"
+        style="--tw-ring-color: var(--color-brand-400)"
       >
-        <option value="" disabled>Select State…</option>
+        <option value="" disabled>Select state…</option>
         <option v-for="st in states" :key="st.id" :value="st.id">{{ st.name }} ({{ st.code }})</option>
       </select>
     </div>
 
-    <!-- 2. LGA Selector -->
+    <!-- LGA Selector -->
     <div v-if="selectedStateId">
-      <label class="mb-1 block text-xs font-semibold text-slate-600">2. Local Government Area (LGA)</label>
+      <label class="mb-1.5 block text-sm font-semibold text-slate-800">Local Government Area</label>
       <select
         v-model="selectedLgaId"
         :disabled="loadingLgas || !lgas.length"
-        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/20 disabled:bg-slate-100"
+        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-transparent focus:outline-none focus:ring-2 disabled:bg-slate-50"
+        style="--tw-ring-color: var(--color-brand-400)"
       >
         <option value="" disabled>{{ loadingLgas ? 'Loading LGAs…' : 'Select LGA…' }}</option>
         <option v-for="lga in lgas" :key="lga.id" :value="lga.id">{{ lga.name }}</option>
       </select>
     </div>
 
-    <!-- 3. Location / Landmark Selector -->
+    <!-- Location / Landmark Selector -->
     <div v-if="selectedLgaId">
-      <label class="mb-1 block text-xs font-semibold text-slate-600">3. Specific Area / Landmark / Junction</label>
+      <label class="mb-1.5 block text-sm font-semibold text-slate-800">Area / Landmark / Junction</label>
       <select
         v-model="selectedLocationId"
         :disabled="loadingLocations"
-        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
+        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-transparent focus:outline-none focus:ring-2"
+        style="--tw-ring-color: var(--color-brand-400)"
       >
         <option value="" disabled>Select known landmark or area…</option>
         <option v-for="loc in locations" :key="loc.id" :value="loc.id">
           {{ loc.name }} {{ loc.status === 'pending' ? '(Pending Approval)' : '' }}
         </option>
-        <option value="__other__">📍 My area isn't listed (Suggest new area)</option>
+        <option value="__other__">My area isn't listed (suggest new area)</option>
       </select>
     </div>
 
     <!-- Custom Location Input -->
-    <div v-if="isCustomLocation" class="pt-1">
-      <label class="mb-1 block text-xs font-semibold text-amber-800">
-        Suggest New Area / Landmark Name
+    <div v-if="isCustomLocation" class="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+      <label class="mb-1.5 block text-sm font-semibold text-amber-900">
+        Suggest new area / landmark name
       </label>
       <input
         v-model="customLocationName"
         type="text"
         placeholder="e.g. Firewood Market Junction"
-        class="w-full rounded-xl border border-amber-300 bg-amber-50/40 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+        class="w-full rounded-xl border border-amber-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
-      <p class="mt-1.5 text-[11px] text-slate-500">
-        ℹ️ Your suggested location will be attached to your report immediately. It will be reviewed by responders before becoming available to all users.
+      <p class="mt-2 flex items-start gap-1.5 text-xs text-amber-800">
+        <svg class="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4" />
+          <path d="M10 9v4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          <circle cx="10" cy="6.7" r="0.9" fill="currentColor" />
+        </svg>
+        Attached to your report immediately, and reviewed by responders before it's available to everyone.
       </p>
     </div>
   </div>

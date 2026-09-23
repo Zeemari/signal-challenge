@@ -7,6 +7,7 @@ import FreshnessBadge from '../components/FreshnessBadge.vue'
 import WhySignalPanel from '../components/WhySignalPanel.vue'
 import ReportListItem from '../components/ReportListItem.vue'
 import { sourceLabel, isFirsthand, STATUS_META } from '../lib/sources.js'
+import { formatClock } from '../lib/time.js'
 
 const route = useRoute()
 const signal = ref(null)
@@ -85,17 +86,56 @@ const firsthandCount = computed(() =>
         <h1 class="text-xl font-bold tracking-tight text-slate-900">{{ signal.title }}</h1>
         <StatusPill :status="signal.status" />
       </div>
-      <div class="mt-2">
+      <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
         <FreshnessBadge :timestamp="signal.last_updated" />
+        <span class="text-slate-300">·</span>
+        <span class="text-xs font-medium text-slate-500">{{ reports.length }} report{{ reports.length === 1 ? '' : 's' }}</span>
       </div>
 
-      <section class="relative mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 pl-5">
+      <section class="relative mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <span
           class="absolute inset-y-0 left-0 w-1"
           :style="{ backgroundColor: (STATUS_META[signal.status] ?? STATUS_META.unconfirmed).dot }"
         ></span>
-        <h2 class="mb-1.5 text-sm font-semibold text-slate-900">Current picture</h2>
-        <p class="text-sm leading-relaxed text-slate-700">{{ signal.summary }}</p>
+        <div class="p-4 pl-5 sm:p-5 sm:pl-6">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <svg class="h-3.5 w-3.5 shrink-0" style="color: var(--color-brand-500)" viewBox="0 0 20 20" fill="none">
+                <rect x="3.5" y="2.5" width="13" height="15" rx="1.5" stroke="currentColor" stroke-width="1.4" />
+                <path d="M6.5 6.5h7M6.5 9.5h7M6.5 12.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+              </svg>
+              <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Situation Report</h2>
+            </div>
+            <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+              <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2.5 18 16.5H2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                <path d="M10 8v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                <circle cx="10" cy="14" r="0.9" fill="currentColor" />
+              </svg>
+              Apply with caution
+            </span>
+          </div>
+
+          <p class="mt-2.5 text-[15px] leading-relaxed text-slate-800">{{ signal.summary }}</p>
+          <p class="mt-2.5 text-xs text-slate-400">
+            Updated {{ formatClock(signal.last_updated) }} · not independently verified
+          </p>
+
+          <div class="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4 text-center">
+            <div>
+              <p class="text-lg font-bold leading-none text-slate-900">{{ reports.length }}</p>
+              <p class="mt-1 text-[11px] font-medium text-slate-500">Report{{ reports.length === 1 ? '' : 's' }}</p>
+            </div>
+            <div>
+              <p class="text-lg font-bold leading-none" style="color: var(--color-brand-600)">{{ firsthandCount }}</p>
+              <p class="mt-1 text-[11px] font-medium text-slate-500">Direct</p>
+            </div>
+            <div>
+              <p class="text-lg font-bold leading-none text-slate-900">{{ sourceBreakdown.length }}</p>
+              <p class="mt-1 text-[11px] font-medium text-slate-500">Source type{{ sourceBreakdown.length === 1 ? '' : 's' }}</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section v-if="signal.status === 'conflicting'" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -113,9 +153,7 @@ const firsthandCount = computed(() =>
       </section>
 
       <section class="mt-5">
-        <h2 class="mb-2 text-sm font-semibold text-slate-900">
-          Evidence · {{ firsthandCount }} direct / {{ reports.length - firsthandCount }} other
-        </h2>
+        <h2 class="mb-2 text-sm font-semibold text-slate-900">Evidence</h2>
         <div class="mb-3 flex flex-wrap gap-2">
           <span
             v-for="b in sourceBreakdown"

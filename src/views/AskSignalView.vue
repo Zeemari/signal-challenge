@@ -87,9 +87,31 @@ async function ask(q) {
     </div>
 
     <div v-else-if="answer" class="space-y-4">
-      <section class="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 class="mb-1.5 text-sm font-semibold text-slate-900">Current picture</h2>
-        <p class="text-sm leading-relaxed text-slate-700">{{ answer.current_picture }}</p>
+      <section class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5">
+            <svg class="h-3.5 w-3.5 shrink-0" style="color: var(--color-brand-500)" viewBox="0 0 20 20" fill="none">
+              <rect x="3.5" y="2.5" width="13" height="15" rx="1.5" stroke="currentColor" stroke-width="1.4" />
+              <path d="M6.5 6.5h7M6.5 9.5h7M6.5 12.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Situation Report</h2>
+          </div>
+          <span
+            v-if="answer.matched"
+            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+          >
+            <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2.5 18 16.5H2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+              <path d="M10 8v3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+              <circle cx="10" cy="14" r="0.9" fill="currentColor" />
+            </svg>
+            Apply with caution
+          </span>
+        </div>
+        <p class="mt-2.5 text-[15px] leading-relaxed text-slate-800">{{ answer.current_picture }}</p>
+        <p v-if="answer.matched && answer.last_updated" class="mt-2.5 text-xs text-slate-400">
+          Updated {{ formatClock(answer.last_updated) }} · not independently verified
+        </p>
       </section>
 
       <section v-if="answer.what_supports_this?.length" class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -124,10 +146,6 @@ async function ask(q) {
           </li>
         </ul>
       </section>
-
-      <p v-if="answer.last_updated" class="text-xs text-slate-500">
-        Last updated: {{ formatClock(answer.last_updated) }}
-      </p>
     </div>
   </div>
 </template>

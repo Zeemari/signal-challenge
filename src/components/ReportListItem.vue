@@ -20,10 +20,13 @@ const SITUATION_META = {
     <!-- Tag ABOVE the report for Responders -->
     <div v-if="report.responder_name" class="mb-2">
       <span class="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
-        <svg class="h-3.5 w-3.5 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
+        <svg class="h-3.5 w-3.5 shrink-0 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
         </svg>
-        Verified Source: {{ report.responder_name }}
+        <span>
+          Verified Source: {{ report.responder_name }}
+          <template v-if="report.responder_institution_name"> · {{ report.responder_institution_name }}</template>
+        </span>
       </span>
     </div>
 

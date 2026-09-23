@@ -65,7 +65,7 @@ export async function getOptionalAuth(req) {
 
     const { data: profile } = await client
       .from('profiles')
-      .select('id, display_name, role, is_active')
+      .select('id, display_name, role, is_active, institution_name, institution_type')
       .eq('id', userData.user.id)
       .maybeSingle()
 
@@ -85,7 +85,7 @@ export async function requireAuth(req) {
 
   const { data: profile, error: profileError } = await client
     .from('profiles')
-    .select('id, display_name, role, is_active')
+    .select('id, display_name, role, is_active, institution_name, institution_type')
     .eq('id', userData.user.id)
     .maybeSingle()
 
