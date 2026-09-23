@@ -183,8 +183,8 @@ Two practical notes on the current build: SMS alerts need a paid Twilio account 
 
 ## Team
 
-- [TEAM MEMBER NAME]
-- [TEAM MEMBER NAME]
+- Zainab Musa
+- Victory Anyanwu
 
 ---
 
