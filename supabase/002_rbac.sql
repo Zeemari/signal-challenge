@@ -15,6 +15,12 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists display_name text;
+alter table public.profiles add column if not exists role public.app_role not null default 'citizen';
+alter table public.profiles add column if not exists is_active boolean not null default true;
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+
 insert into public.profiles (id)
 select id from auth.users
 on conflict (id) do nothing;

@@ -30,6 +30,17 @@ const SITUATION_META = {
     <!-- Report Content -->
     <p class="text-sm leading-relaxed text-slate-800">{{ report.content }}</p>
 
+    <!-- Location line -->
+    <p class="mt-1.5 text-xs text-slate-500">
+      📍 {{ report.location }}
+      <span
+        v-if="report.location_ref?.status === 'pending'"
+        class="ml-1.5 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+      >
+        🟡 Location Pending Approval
+      </span>
+    </p>
+
     <!-- Metadata Badges -->
     <div class="mt-3 flex flex-wrap items-center gap-2">
       <span
