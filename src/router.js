@@ -11,27 +11,29 @@ import AdminLocationsView from './views/AdminLocationsView.vue'
 import ForbiddenView from './views/ForbiddenView.vue'
 import AccessDeniedView from './views/AccessDeniedView.vue'
 import { ensureAuth, authState, hasPermission } from './lib/auth.js'
+import { navLoading } from './lib/navLoading.js'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'dashboard', component: Dashboard },
-    { path: '/report', name: 'report', component: SubmitReport },
-    { path: '/signal/:id', name: 'signal-detail', component: SignalDetailView, props: true },
-    { path: '/ask', name: 'ask', component: AskSignalView },
-    { path: '/login', name: 'login', component: AuthView, props: { mode: 'login' } },
-    { path: '/signup', name: 'signup', component: AuthView, props: { mode: 'signup' } },
-    { path: '/my-reports', name: 'my-reports', component: MyReportsView, meta: { permission: 'reports:read:own' } },
-    { path: '/responder', name: 'responder', component: ResponderDashboard, meta: { permission: 'reports:read:all' } },
+    { path: '/', name: 'dashboard', component: Dashboard, meta: { title: 'Signals', wide: true } },
+    { path: '/report', name: 'report', component: SubmitReport, meta: { title: 'Report something' } },
+    { path: '/signal/:id', name: 'signal-detail', component: SignalDetailView, props: true, meta: { title: 'Signal' } },
+    { path: '/ask', name: 'ask', component: AskSignalView, meta: { title: 'Ask SIGNAL' } },
+    { path: '/login', name: 'login', component: AuthView, props: { mode: 'login' }, meta: { title: 'Account access' } },
+    { path: '/signup', name: 'signup', component: AuthView, props: { mode: 'signup' }, meta: { title: 'Account access' } },
+    { path: '/my-reports', name: 'my-reports', component: MyReportsView, meta: { permission: 'reports:read:own', title: 'My reports' } },
+    { path: '/responder', name: 'responder', component: ResponderDashboard, meta: { permission: 'reports:read:all', title: 'Responder workspace' } },
     { path: '/admin', redirect: '/admin/locations' },
-    { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { permission: 'users:manage' } },
-    { path: '/admin/locations', name: 'admin-locations', component: AdminLocationsView, meta: { permission: 'users:manage' } },
-    { path: '/access-denied', name: 'access-denied', component: AccessDeniedView },
-    { path: '/forbidden', name: 'forbidden', component: ForbiddenView },
+    { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { permission: 'users:manage', title: 'Users', wide: true } },
+    { path: '/admin/locations', name: 'admin-locations', component: AdminLocationsView, meta: { permission: 'users:manage', title: 'Locations', wide: true } },
+    { path: '/access-denied', name: 'access-denied', component: AccessDeniedView, meta: { title: 'Access denied' } },
+    { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { title: 'Forbidden' } },
   ],
 })
 
 router.beforeEach(async (to) => {
+  navLoading.value = true
   await ensureAuth()
   if (to.path.startsWith('/admin') || to.meta.permission === 'users:manage') {
     if (!authState.user || !hasPermission('users:manage')) {
@@ -43,5 +45,8 @@ router.beforeEach(async (to) => {
   if (!hasPermission(to.meta.permission)) return { name: 'forbidden' }
   return true
 })
+
+router.afterEach(() => { navLoading.value = false })
+router.onError(() => { navLoading.value = false })
 
 export default router

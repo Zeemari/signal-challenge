@@ -25,12 +25,7 @@
 }
 
 body {
-  background-color: #fdf6ee;
-  background-image:
-    radial-gradient(circle at 15% 0%, rgba(249, 199, 130, 0.55), transparent 45%),
-    radial-gradient(circle at 100% 10%, rgba(240, 160, 130, 0.4), transparent 40%),
-    radial-gradient(circle at 50% 100%, rgba(47, 111, 94, 0.12), transparent 55%);
-  background-attachment: fixed;
+  background-color: #f6f5f1;
   color: #12181a;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -65,5 +60,34 @@ body {
 }
 
 a.router-link-exact-active[data-nav] {
+  background-color: var(--color-brand-50);
   color: var(--color-brand-700);
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #eceae4;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nav-loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
 }

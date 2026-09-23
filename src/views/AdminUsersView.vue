@@ -8,6 +8,22 @@ const loading = ref(true)
 const error = ref(null)
 const busy = ref(null)
 
+const showAddModal = ref(false)
+const adding = ref(false)
+const addError = ref(null)
+const newEmail = ref('')
+const newDisplayName = ref('')
+const newRole = ref('citizen')
+const newPassword = ref('')
+const createdCredential = ref(null) // { email, temp_password }
+
+function generatePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  let out = ''
+  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)]
+  newPassword.value = out + '!1'
+}
+
 async function load() {
   try {
     users.value = (await apiFetch('/api/admin-users')).users
@@ -39,25 +55,87 @@ function updatePhone(user, value) { return update(user, 'phone', value) }
 function updateInstitutionName(user, value) { return update(user, 'institution_name', value) }
 function updateInstitutionType(user, value) { return update(user, 'institution_type', value) }
 
+function openAddModal() {
+  newEmail.value = ''
+  newDisplayName.value = ''
+  newRole.value = 'citizen'
+  newPassword.value = ''
+  addError.value = null
+  showAddModal.value = true
+}
+
+async function submitAddUser() {
+  if (!newEmail.value.trim() || newPassword.value.length < 8 || adding.value) return
+  adding.value = true
+  addError.value = null
+  try {
+    const res = await apiFetch('/api/admin-users', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: newEmail.value.trim(),
+        display_name: newDisplayName.value.trim() || undefined,
+        role: newRole.value,
+        password: newPassword.value,
+      }),
+    })
+    showAddModal.value = false
+    createdCredential.value = { email: res.user.email, password: newPassword.value }
+    await load()
+  } catch (e) {
+    addError.value = e.message
+  } finally {
+    adding.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
 <template>
   <div>
-    <div class="mb-6">
-      <p class="text-xs font-semibold uppercase tracking-[0.16em]" style="color: var(--color-brand-600)">Administration</p>
-      <h1 class="mt-2 text-[28px] font-bold leading-tight tracking-tight text-slate-900">Users</h1>
-      <p class="mt-1.5 text-sm text-slate-500">Manage access without exposing role decisions to the browser.</p>
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.16em]" style="color: var(--color-brand-600)">Administration</p>
+        <h1 class="mt-2 text-[28px] font-bold leading-tight tracking-tight text-slate-900">Users</h1>
+        <p class="mt-1.5 text-sm text-slate-500">Manage access and see what each role can see.</p>
+      </div>
+      <button
+        type="button"
+        @click="openAddModal"
+        class="flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform active:scale-[0.98]"
+        style="background-color: var(--color-brand-500)"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
+          <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        Add user
+      </button>
+    </div>
+
+    <div v-if="createdCredential" class="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+      <p class="text-sm font-semibold text-emerald-800">
+        Account created for {{ createdCredential.email }}
+      </p>
+      <p class="mt-1 text-sm text-emerald-700">
+        Password: <code class="rounded bg-white px-1.5 py-0.5 font-mono text-[13px]">{{ createdCredential.password }}</code>
+      </p>
+      <p class="mt-1 text-xs text-emerald-600">Share this with them securely — it won't be shown again. They should change it after signing in.</p>
+      <button type="button" @click="createdCredential = null" class="mt-2 text-xs font-semibold text-emerald-700 underline">Dismiss</button>
     </div>
 
     <p v-if="error" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
 
-    <div v-if="loading" class="space-y-3">
-      <div v-for="i in 3" :key="i" class="h-24 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+    <div v-if="loading" class="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div v-for="i in 4" :key="i" class="skeleton h-24 rounded-2xl border border-slate-200" />
     </div>
 
-    <ul v-else class="space-y-3">
-      <li v-for="user in users" :key="user.id" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div v-else-if="!users.length" class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-14 text-center">
+      <p class="text-sm font-semibold text-slate-700">No users yet</p>
+      <p class="mt-1 text-sm text-slate-500">Add one to get started.</p>
+    </div>
+
+    <ul v-else class="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <li v-for="user in users" :key="user.id" class="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-slate-900">{{ user.email || user.display_name || 'Signal user' }}</p>
@@ -90,6 +168,9 @@ onMounted(load)
             {{ user.is_active ? 'Deactivate' : 'Activate' }}
           </button>
         </div>
+        <p class="mt-1.5 text-[11px] text-slate-400">
+          Set to Responder to see the responder workspace (locations &amp; signal status); Admin also unlocks Users and Locations.
+        </p>
 
         <div v-if="user.role !== 'citizen'" class="mt-3 space-y-2.5 border-t border-slate-100 pt-3">
           <div class="flex flex-wrap items-center gap-2">
@@ -136,5 +217,83 @@ onMounted(load)
         </div>
       </li>
     </ul>
+
+    <!-- Add user modal -->
+    <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/40" @click="showAddModal = false" />
+      <div class="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-slate-900">Add user</h2>
+          <button type="button" @click="showAddModal = false" class="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Close">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
+              <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <form @submit.prevent="submitAddUser" class="mt-4 space-y-3">
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-700">Email</label>
+            <input
+              v-model="newEmail"
+              type="email"
+              required
+              placeholder="name@example.com"
+              class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+              style="--tw-ring-color: var(--color-brand-400)"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-700">Display name (optional)</label>
+            <input
+              v-model="newDisplayName"
+              type="text"
+              placeholder="Jane Doe"
+              class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+              style="--tw-ring-color: var(--color-brand-400)"
+            />
+          </div>
+          <div>
+            <div class="mb-1 flex items-center justify-between">
+              <label class="block text-xs font-semibold text-slate-700">Password</label>
+              <button type="button" @click="generatePassword" class="text-[11px] font-semibold" style="color: var(--color-brand-600)">Generate</button>
+            </div>
+            <input
+              v-model="newPassword"
+              type="text"
+              required
+              minlength="8"
+              placeholder="At least 8 characters"
+              class="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm focus:border-transparent focus:outline-none focus:ring-2"
+              style="--tw-ring-color: var(--color-brand-400)"
+            />
+            <p class="mt-1 text-[11px] text-slate-400">They'll sign in with this email + password — share it with them yourself.</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-700">Role</label>
+            <select
+              v-model="newRole"
+              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              <option value="citizen">Citizen</option>
+              <option value="responder">Responder</option>
+              <option value="admin">Admin</option>
+            </select>
+            <p class="mt-1 text-[11px] text-slate-400">You can pick Responder here to preview the responder workspace right away.</p>
+          </div>
+
+          <p v-if="addError" class="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{{ addError }}</p>
+
+          <button
+            type="submit"
+            :disabled="adding || !newEmail.trim() || newPassword.length < 8"
+            class="w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+            style="background-color: var(--color-brand-500)"
+          >
+            {{ adding ? 'Creating…' : 'Create user' }}
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
