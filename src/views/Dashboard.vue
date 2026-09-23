@@ -18,10 +18,25 @@ onMounted(async () => {
     if (signalsError) throw signalsError
     signals.value = signalRows ?? []
 
-    const { data: reportRows, error: reportsError } = await supabase
-      .from('reports')
-      .select('signal_id')
-    if (reportsError) throw reportsError
+    let reportRows = []
+    try {
+      const response = await fetch('/api/public-signals')
+      const contentType = response.headers.get('content-type') || ''
+      if (response.ok && contentType.includes('application/json')) {
+        const publicData = await response.json()
+        if (publicData?.signals) {
+          reportRows = publicData.signals.flatMap((signal) =>
+            Array.from({ length: signal.report_count }, () => ({ signal_id: signal.id }))
+          )
+        }
+      } else {
+        const { data: rData } = await supabase.from('reports').select('signal_id')
+        reportRows = rData ?? []
+      }
+    } catch {
+      const { data: rData } = await supabase.from('reports').select('signal_id')
+      reportRows = rData ?? []
+    }
 
     const counts = {}
     for (const r of reportRows ?? []) {

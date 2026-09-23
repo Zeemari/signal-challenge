@@ -1,4 +1,4 @@
-import { supabase } from './_lib/supabase.js'
+import { getServerClient } from './_lib/supabase.js'
 import { askForJSON } from './_lib/anthropic.js'
 
 const ASK_SYSTEM = `You answer a question about a specific location using ONLY the reports provided to you.
@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const supabase = getServerClient()
     const { question } = req.body
     if (!question || !question.trim()) {
       return res.status(400).json({ error: 'question is required' })
