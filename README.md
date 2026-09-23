@@ -63,7 +63,7 @@ Subscribers can get an SMS alert when a signal is corroborated
 
 ## How AI Fits Into SIGNAL
 
-We use Anthropic's Claude (`claude-haiku-4-5`), called only from server-side functions so the API key never reaches the browser.
+We use DeepSeek (`deepseek-chat`), called only from server-side functions so the API key never reaches the browser.
 
 | Step | File | What the AI does |
 |---|---|---|
@@ -104,14 +104,38 @@ Admins can see and manage who is using the system:
 
 Responders have their own workspace for reviewing pending locations and setting signal status. The point is to keep a person in the loop instead of leaving everything to the AI.
 
+## Try the Demo
+
+Live app: (https://signal-challenge-production.up.railway.app)
+
+Sign in at `/login` with one of these pre-made test accounts. They exist only for judging and demos, so they hold no real data.
+
+| Role | Email | Password | What to try |
+|---|---|---|---|
+| Admin | `demo.admin@signal-demo.com` | `SignalDemo#Admin1` | `/admin/users` to add users and change roles, `/admin/locations` to manage the location hierarchy and approve community-suggested areas |
+| Responder | `demo.responder@signal-demo.com` | `SignalDemo#Responder1` | `/responder` to review pending locations and reports, verify or reject them, and set signal status |
+
+No account is needed to browse signals, submit a report or use Ask SIGNAL. Anyone can also sign up at `/signup` as a citizen.
+
+**A quick demo path:**
+1. As a visitor, submit a report from `/report`. Try suggesting a new area, such as "Mopol junction".
+2. Sign in as the responder, open `/responder`, approve the suggested location and verify the report.
+3. Back on the home page, open the signal to see its freshness, source type and review status, then ask "What do we know about Mopol Junction?" in Ask SIGNAL.
+4. Sign in as the admin and open `/admin/users` to see role management.
+
+To recreate or reset these accounts in your own Supabase project (needs `VITE_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`):
+```
+npm run seed:demo
+```
+
 ## Tech Stack
 
 - **Frontend:** Vue 3, Vite, Tailwind CSS v4
-- **Backend:** Serverless functions in `/api` (Vercel)
+- **Backend:** Serverless-style functions in `/api`, run by Vercel or by `server.js` on Railway and other Node hosts
 - **Database and auth:** Supabase (Postgres, Supabase Auth, row-level security)
-- **AI:** Anthropic Claude (`claude-haiku-4-5`)
-- **SMS:** Twilio (Verify for confirmation codes, Messages for alerts)
-- **Deployment:** Vercel
+- **AI:** DeepSeek (active) or Anthropic Claude
+- **SMS:** Sendchamp (Twilio kept as a legacy option)
+- **Deployment:** Railway (`npm run build`, then `npm start`) or Vercel
 
 ## Getting Started
 
@@ -125,12 +149,17 @@ Responders have their own workspace for reviewing pending locations and setting 
    npm install
    npm run dev
    ```
-   `npm run dev` only serves the frontend. To run the `/api` functions locally, use the Vercel CLI: `vercel dev`.
+   `npm run dev` serves both the frontend and the `/api` functions.
 4. **Make your first admin.** Sign up normally, copy your user ID from Supabase Authentication, and run this in the SQL editor:
    ```sql
    update public.profiles set role = 'admin' where id = '<YOUR_USER_UUID>';
    ```
-5. **Deploy.** Push to GitHub, import the repo into Vercel, and add the same environment variables in the Vercel project settings. Your local `.env` is not used in production.
+5. **Create the demo accounts** (optional): `npm run seed:demo`.
+6. **Deploy.**
+   - **Railway (or any Node host):** build with `npm run build`, start with `npm start`. `server.js` serves the built app and routes `/api/*` to the functions. Without it, API calls return 405.
+   - **Vercel:** import the repo. `/api` works out of the box.
+
+   Either way, add the same environment variables in the host's settings. Your local `.env` is not used in production.
 
 ## Environment Variables
 
@@ -139,7 +168,9 @@ Responders have their own workspace for reviewing pending locations and setting 
 | `VITE_SUPABASE_URL` | Supabase project URL (browser) |
 | `VITE_SUPABASE_ANON_KEY` | Supabase public key (browser) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key. Never prefix with `VITE_`. |
-| `ANTHROPIC_API_KEY` | Server-only key for Claude |
+| `DEEPSEEK_API_KEY` | Server-only key for the AI (DeepSeek) |
+| `SENDCHAMP_API_KEY`, `SENDCHAMP_SENDER_NAME`, `SENDCHAMP_SMS_ROUTE` | SMS alerts via Sendchamp |
+| `ANTHROPIC_API_KEY` | Optional, legacy Claude key |
 | `TWILIO_ACCOUNT_SID` | Twilio account |
 | `TWILIO_AUTH_TOKEN` | Twilio auth |
 | `TWILIO_FROM_NUMBER` | Number alerts are sent from, in `+234...` format with no spaces |
@@ -161,6 +192,8 @@ src/
   views/             Pages (dashboard, report form, signal detail, admin, ...)
   components/        UI pieces (signal cards, chat, SMS modal, ...)
   lib/               Client helpers (auth, API, freshness, sources)
+server.js           Production server (static files + /api) for Railway
+scripts/            seed-demo-users.js creates the demo accounts
 supabase/            Schema and numbered migrations
 ```
 
