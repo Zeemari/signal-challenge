@@ -43,7 +43,19 @@ export function hasRole(role) {
   return authState.profile?.role === role
 }
 
-export async function signOut() {
-  await supabase.auth.signOut()
-  await setSession(null)
+export async function signOut(router) {
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+    await setSession(null)
+    const r = (router && typeof router.replace === 'function')
+      ? router
+      : (await import('../router.js')).default
+    await r.replace('/login')
+  } catch (err) {
+    console.error('Failed to sign out:', err)
+    alert('Failed to sign out: ' + (err.message || err))
+    throw err
+  }
 }
+

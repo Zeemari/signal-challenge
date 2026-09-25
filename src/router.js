@@ -16,7 +16,8 @@ import { navLoading } from './lib/navLoading.js'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'dashboard', component: Dashboard, meta: { title: 'Signals' } },
+    { path: '/', name: 'dashboard', component: Dashboard, meta: { title: 'Signals', wide: true } },
+    { path: '/reports', name: 'reports', component: ReportsView, meta: { title: 'Reports', wide: true } },
     { path: '/report', name: 'report', component: SubmitReport, meta: { title: 'Report something' } },
     { path: '/signal/:id', name: 'signal-detail', component: SignalDetailView, props: true, meta: { title: 'Signal' } },
     { path: '/ask', name: 'ask', component: AskSignalView, meta: { title: 'Ask SIGNAL' } },
@@ -36,7 +37,8 @@ router.beforeEach(async (to) => {
   navLoading.value = true
   await ensureAuth()
   if (to.path.startsWith('/admin') || to.meta.permission === 'users:manage') {
-    if (!authState.user || !hasPermission('users:manage')) {
+    if (!authState.user) return { name: 'login', query: { redirect: to.fullPath } }
+    if (!hasPermission('users:manage')) {
       return { name: 'access-denied' }
     }
   }

@@ -4,201 +4,184 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { authState, hasPermission, hasRole, signOut } from './lib/auth.js'
 import { navLoading } from './lib/navLoading.js'
 import SignalMark from './components/SignalMark.vue'
+import AskSignalChat from './components/AskSignalChat.vue'
 import NotificationBell from './components/NotificationBell.vue'
-import NavIcon from './components/NavIcon.vue'
-import FloatingActions from './components/FloatingActions.vue'
-import AccountMenu from './components/AccountMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
+
 const canReview = computed(() => hasPermission('reports:read:all'))
 const canManageUsers = computed(() => hasPermission('users:manage'))
-const isAdmin = computed(() => hasRole('admin'))
+const isResponder = computed(() => hasRole('responder'))
 const pageTitle = computed(() => route.meta.title || 'SIGNAL')
+const contentWidthClass = computed(() => (route.meta.wide ? 'max-w-6xl' : 'max-w-2xl'))
 
-const adminNavItems = computed(() => [
-  { to: '/', label: 'Signals', show: true, icon: 'grid' },
-  { to: '/my-reports', label: 'Reports', show: !!authState.user, icon: 'doc' },
-  { to: '/responder', label: 'Responder', show: canReview.value, icon: 'review' },
-  { to: '/admin/locations', label: 'Locations', show: canManageUsers.value, icon: 'pin' },
-  { to: '/admin/users', label: 'Users', show: canManageUsers.value, icon: 'users' },
-])
-
-const publicNavItems = computed(() => [
+const navItems = computed(() => [
   { to: '/', label: 'Signals', show: true },
-  { to: '/my-reports', label: 'Reports', show: !!authState.user },
+  { to: '/reports', label: 'Reports', show: true },
   { to: '/responder', label: 'Responder', show: canReview.value },
+  { to: '/admin/locations', label: 'Locations', show: canManageUsers.value },
+  { to: '/admin/users', label: 'Users', show: canManageUsers.value },
 ])
 
-const initials = computed(() => {
-  const name = (authState.profile?.display_name || authState.user?.email || '').trim()
-  if (!name) return '?'
-  const parts = name.split(/\s+/)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return name.slice(0, 2).toUpperCase()
-})
-
-async function handleSignOut() {
-  await signOut()
-  router.push('/login')
-}
+const responderTabs = [
+  { to: '/', label: 'Home' },
+  { to: '/responder', label: 'Review' },
+  { to: '/reports', label: 'Report' },
+]
 
 const mobileMenuOpen = ref(false)
+const askOpen = ref(false)
 watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
+
+async function handleSignOut() {
+  try {
+    await signOut(router)
+  } catch (err) {
+    console.error('Sign out error:', err)
+  }
+}
 </script>
 
 <template>
   <!-- ============ Bare shell: auth pages, no chrome ============ -->
   <RouterView v-if="route.meta.bare" />
 
-  <!-- ============ Admin shell: sidebar ============ -->
-  <div v-else-if="isAdmin" class="flex min-h-screen">
+  <!-- ============ Responder shell: mobile-first, bottom tab nav ============ -->
+  <div v-else-if="isResponder" class="flex min-h-screen flex-col">
     <div v-show="navLoading" class="fixed left-0 right-0 top-0 z-50 h-0.5 overflow-hidden bg-transparent">
       <div class="h-full w-1/3" style="background-color: var(--color-brand-500); animation: nav-loading-bar 0.9s ease-in-out infinite" />
     </div>
 
-    <aside class="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-5 lg:flex">
-      <RouterLink to="/" class="flex items-center gap-2.5 px-1">
-        <SignalMark class="h-9 w-9" />
+    <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+      <RouterLink to="/" class="flex items-center gap-2">
+        <SignalMark class="h-8 w-8" />
         <span class="flex flex-col leading-none">
           <span class="text-base font-extrabold tracking-tight text-slate-900">SIGNAL</span>
-          <span class="text-[11px] font-medium text-slate-500">Administration</span>
+          <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Responder</span>
         </span>
       </RouterLink>
-
-      <p class="mb-2 mt-8 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Menu</p>
-      <nav class="flex flex-1 flex-col gap-0.5 text-sm font-medium">
-        <RouterLink
-          v-for="item in adminNavItems.filter((i) => i.show)"
-          :key="item.to"
-          :to="item.to"
-          data-nav
-          class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+      <div class="flex items-center gap-1.5">
+        <NotificationBell :can-review="true" />
+        <button
+          type="button"
+          @click="handleSignOut"
+          class="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+          aria-label="Sign out"
         >
-          <NavIcon :icon="item.icon" />
-          {{ item.label }}
-        </RouterLink>
-      </nav>
-
-      <div class="mt-3 border-t border-slate-100 pt-3">
-        <div class="mb-1 flex items-center gap-2.5 rounded-xl px-2 py-2">
-          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style="background-color: var(--color-brand-500)">
-            {{ initials }}
-          </span>
-          <div class="min-w-0">
-            <p class="truncate text-xs font-semibold text-slate-800">{{ authState.profile?.display_name || authState.user?.email }}</p>
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ authState.profile?.role }}</p>
-          </div>
-        </div>
-        <button type="button" @click="handleSignOut" class="block w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
-          Sign out
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+            <path d="M8 4.5H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M13 13.5l3.5-3.5-3.5-3.5M16 10H7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </button>
       </div>
-    </aside>
+    </header>
 
-    <div class="flex min-w-0 flex-1 flex-col">
-      <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
-        <div class="flex min-w-0 items-center gap-2.5 lg:hidden">
-          <RouterLink to="/" class="flex items-center gap-2">
-            <SignalMark class="h-8 w-8" />
-            <span class="text-base font-extrabold tracking-tight text-slate-900">SIGNAL</span>
-          </RouterLink>
-        </div>
-        <h1 class="hidden truncate text-base font-bold text-slate-900 lg:block">{{ pageTitle }}</h1>
-        <div class="flex shrink-0 items-center gap-1.5">
-          <NotificationBell :can-review="canReview" />
-          <button type="button" @click="mobileMenuOpen = true" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 lg:hidden" aria-label="Open menu">
-            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none">
-              <path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      <div v-if="mobileMenuOpen" class="fixed inset-0 z-40 lg:hidden">
-        <div class="absolute inset-0 bg-slate-900/40" @click="mobileMenuOpen = false" />
-        <div class="absolute inset-y-0 left-0 flex w-72 max-w-[80vw] flex-col bg-white p-5 shadow-xl">
-          <div class="mb-6 flex items-center justify-between">
-            <RouterLink to="/" class="flex items-center gap-2.5" @click="mobileMenuOpen = false">
-              <SignalMark class="h-8 w-8" />
-              <span class="text-base font-extrabold tracking-tight text-slate-900">SIGNAL</span>
-            </RouterLink>
-            <button type="button" @click="mobileMenuOpen = false" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600" aria-label="Close menu">
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
-                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-              </svg>
-            </button>
-          </div>
-          <nav class="flex flex-1 flex-col gap-0.5 text-sm font-medium">
-            <RouterLink
-              v-for="item in adminNavItems.filter((i) => i.show)"
-              :key="item.to"
-              :to="item.to"
-              data-nav
-              class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              <NavIcon :icon="item.icon" />
-              {{ item.label }}
-            </RouterLink>
-          </nav>
-          <div class="border-t border-slate-100 pt-3">
-            <button type="button" @click="handleSignOut" class="block w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900">
-              Sign out
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <main class="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
+    <main class="w-full flex-1 px-4 pb-28 pt-5">
+      <div class="mx-auto w-full max-w-2xl">
         <RouterView />
-      </main>
+      </div>
+    </main>
 
-      <footer class="px-4 pb-24 sm:px-6 lg:px-8">
-        <p class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-xs leading-relaxed text-slate-500">
-          SIGNAL organizes community reports and does not independently verify every report.
-          Use trusted local authorities and your own judgment for urgent safety decisions.
-        </p>
-      </footer>
+    <!-- Bottom tab bar -->
+    <nav class="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
+      <RouterLink
+        v-for="tab in responderTabs"
+        :key="tab.to"
+        :to="tab.to"
+        class="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold transition-colors"
+        :class="route.path === tab.to ? '' : 'text-slate-400'"
+        :style="route.path === tab.to ? 'color: var(--color-brand-600)' : ''"
+      >
+        <svg v-if="tab.label === 'Home'" class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+          <path d="M3 9l7-6 7 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M4.5 8v7a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else-if="tab.label === 'Review'" class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+          <rect x="4" y="3" width="12" height="14" rx="1.5" stroke="currentColor" stroke-width="1.6" />
+          <path d="M7 8.2l1.8 1.8L11 7.5M7 13h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+          <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        {{ tab.label }}
+      </RouterLink>
+    </nav>
+
+    <!-- Floating: AI chat bot -->
+    <button
+      type="button"
+      @click="askOpen = !askOpen"
+      class="fixed bottom-24 right-5 z-20 flex h-13 w-13 items-center justify-center rounded-full text-white shadow-xl shadow-brand-900/25 transition-transform hover:-translate-y-0.5 active:translate-y-0"
+      style="background-color: var(--color-brand-600)"
+      :aria-label="askOpen ? 'Close Ask SIGNAL chat' : 'Open Ask SIGNAL chat'"
+    >
+      <svg v-if="!askOpen" class="h-5.5 w-5.5" viewBox="0 0 20 20" fill="none">
+        <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5v5A2.5 2.5 0 0 1 14.5 13H9l-3.8 3.2A.6.6 0 0 1 4.2 15.7V13h-.7A2.5 2.5 0 0 1 1 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <svg v-else class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+        <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+    </button>
+    <div
+      v-show="askOpen"
+      class="fixed bottom-40 right-5 z-20 flex h-[min(28rem,60vh)] w-[min(24rem,88vw)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+    >
+      <AskSignalChat variant="panel" @close="askOpen = false" />
     </div>
-
-    <FloatingActions />
   </div>
 
-  <!-- ============ Public shell: citizen + responder, top nav, no sidebar ============ -->
+  <!-- ============ Default shell (citizen / public / admin): top navbar ============ -->
   <div v-else class="flex min-h-screen flex-col">
     <div v-show="navLoading" class="fixed left-0 right-0 top-0 z-50 h-0.5 overflow-hidden bg-transparent">
       <div class="h-full w-1/3" style="background-color: var(--color-brand-500); animation: nav-loading-bar 0.9s ease-in-out infinite" />
     </div>
 
-    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
-      <div class="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10">
-        <RouterLink to="/" class="flex shrink-0 items-center gap-2.5">
+    <!-- Top Navbar -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8 shadow-xs">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4">
+        <!-- Brand -->
+        <RouterLink to="/" class="flex items-center gap-2.5">
           <SignalMark class="h-9 w-9" />
-          <span class="hidden flex-col leading-none sm:flex">
+          <span class="flex flex-col leading-none">
             <span class="text-base font-extrabold tracking-tight text-slate-900">SIGNAL</span>
             <span class="text-[11px] font-medium text-slate-500">Know what's known</span>
           </span>
         </RouterLink>
 
-        <nav class="hidden items-center gap-1 text-sm font-medium sm:flex">
+        <!-- Desktop Navigation Links -->
+        <nav class="hidden items-center gap-1.5 sm:flex text-sm font-medium">
           <RouterLink
-            v-for="item in publicNavItems.filter((i) => i.show)"
+            v-for="item in navItems.filter((i) => i.show)"
             :key="item.to"
             :to="item.to"
             data-nav
-            class="rounded-full px-3.5 py-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            class="rounded-xl px-3.5 py-2 transition-colors text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            :class="route.path === item.to ? 'bg-slate-100 font-semibold text-slate-900' : ''"
           >
             {{ item.label }}
           </RouterLink>
         </nav>
 
-        <div class="flex shrink-0 items-center gap-1.5">
+        <!-- Controls / Auth -->
+        <div class="flex items-center gap-2">
           <NotificationBell :can-review="canReview" />
-          <AccountMenu v-if="authState.user" :initials="initials" class="hidden sm:block" />
-          <RouterLink v-else to="/login" class="rounded-full px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
-            Sign in
-          </RouterLink>
-          <button type="button" @click="mobileMenuOpen = true" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 sm:hidden" aria-label="Open menu">
+
+          <div class="hidden sm:flex sm:items-center sm:gap-2">
+            <RouterLink v-if="!authState.user" to="/login" class="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-slate-800">
+              Sign in
+            </RouterLink>
+            <button v-else type="button" @click="handleSignOut" class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900">
+              Sign out
+            </button>
+          </div>
+
+          <!-- Mobile drawer toggle -->
+          <button
+            type="button"
+            @click="mobileMenuOpen = true"
+            class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 sm:hidden"
+            aria-label="Open menu"
+          >
             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none">
               <path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
             </svg>
@@ -207,7 +190,7 @@ watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
       </div>
     </header>
 
-    <!-- Mobile nav drawer -->
+    <!-- Mobile menu drawer -->
     <div v-if="mobileMenuOpen" class="fixed inset-0 z-40 sm:hidden">
       <div class="absolute inset-0 bg-slate-900/40" @click="mobileMenuOpen = false" />
       <div class="absolute inset-y-0 left-0 flex w-72 max-w-[80vw] flex-col bg-white p-5 shadow-xl">
@@ -216,15 +199,21 @@ watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
             <SignalMark class="h-8 w-8" />
             <span class="text-base font-extrabold tracking-tight text-slate-900">SIGNAL</span>
           </RouterLink>
-          <button type="button" @click="mobileMenuOpen = false" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600" aria-label="Close menu">
+          <button
+            type="button"
+            @click="mobileMenuOpen = false"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close menu"
+          >
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
               <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
             </svg>
           </button>
         </div>
-        <nav class="flex flex-1 flex-col gap-0.5 text-sm font-medium">
+
+        <nav class="flex flex-1 flex-col gap-1 text-sm font-medium">
           <RouterLink
-            v-for="item in publicNavItems.filter((i) => i.show)"
+            v-for="item in navItems.filter((i) => i.show)"
             :key="item.to"
             :to="item.to"
             data-nav
@@ -233,6 +222,7 @@ watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
             {{ item.label }}
           </RouterLink>
         </nav>
+
         <div class="border-t border-slate-100 pt-3">
           <RouterLink v-if="!authState.user" to="/login" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
             Sign in
@@ -244,17 +234,53 @@ watch(() => route.fullPath, () => { mobileMenuOpen.value = false })
       </div>
     </div>
 
-    <main class="w-full flex-1 px-4 py-6 sm:px-6 lg:px-10">
-      <RouterView />
+    <!-- Main Content -->
+    <main class="w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      <div class="mx-auto w-full transition-[max-width]" :class="contentWidthClass">
+        <RouterView />
+      </div>
     </main>
 
-    <footer class="px-4 pb-24 sm:px-6 lg:px-10">
-      <p class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-xs leading-relaxed text-slate-500">
+    <footer class="px-4 pb-6 sm:px-6 lg:px-8">
+      <p class="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-xs leading-relaxed text-slate-500">
         SIGNAL organizes community reports and does not independently verify every report.
         Use trusted local authorities and your own judgment for urgent safety decisions.
       </p>
     </footer>
 
-    <FloatingActions />
+    <!-- Floating AI Chat Bot -->
+    <button
+      type="button"
+      @click="askOpen = !askOpen"
+      class="fixed bottom-5 right-5 z-20 flex h-13 w-13 items-center justify-center rounded-full text-white shadow-xl shadow-brand-900/25 transition-transform hover:-translate-y-0.5 active:translate-y-0"
+      style="background-color: var(--color-brand-600)"
+      :aria-label="askOpen ? 'Close Ask SIGNAL chat' : 'Open Ask SIGNAL chat'"
+    >
+      <svg v-if="!askOpen" class="h-5.5 w-5.5" viewBox="0 0 20 20" fill="none">
+        <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5v5A2.5 2.5 0 0 1 14.5 13H9l-3.8 3.2A.6.6 0 0 1 4.2 15.7V13h-.7A2.5 2.5 0 0 1 1 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <svg v-else class="h-5 w-5" viewBox="0 0 20 20" fill="none">
+        <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+    </button>
+
+    <!-- Floating Report Something Button -->
+    <RouterLink
+      to="/reports?tab=submit"
+      class="fixed bottom-24 right-5 z-20 flex items-center gap-2 rounded-full py-3 pl-4 pr-5 text-sm font-semibold text-white shadow-xl shadow-brand-900/25 transition-transform hover:-translate-y-0.5 active:translate-y-0"
+      style="background-color: var(--color-brand-500)"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none">
+        <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+      Report Something
+    </RouterLink>
+
+    <div
+      v-show="askOpen"
+      class="fixed bottom-22 right-5 z-20 flex h-[min(32rem,70vh)] w-[min(24rem,88vw)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+    >
+      <AskSignalChat variant="panel" @close="askOpen = false" />
+    </div>
   </div>
 </template>
